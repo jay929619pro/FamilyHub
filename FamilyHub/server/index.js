@@ -240,6 +240,16 @@ io.on('connection', (socket) => {
         }
     }
 
+    // --- Profile Actions ---
+    else if (type === 'update-profile') {
+        const user = room.users.get(socket.id);
+        if (user) {
+            user.name = payload.name;
+            user.avatar = payload.avatar;
+            broadcastState(io, DEMO_ROOM);
+        }
+    }
+
     // --- Drawing Actions (Only allowed if Drawing Phase & Correct Drawer) ---
     else if (['draw-start', 'draw-move', 'draw-end'].includes(type)) {
         if (room.gameState.phase === PHASES.DRAWING && socket.id === room.gameState.drawerId) {

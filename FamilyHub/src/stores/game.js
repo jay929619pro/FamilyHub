@@ -41,6 +41,15 @@ export const useGameStore = defineStore('game', () => {
     myPlayerId.value = id
   }
   
+  function setProfile(name, avatar) {
+      // Optimistic update
+      const myPlayer = players.value.find(p => p.id === myPlayerId.value)
+      if (myPlayer) {
+          myPlayer.name = name
+          myPlayer.avatar = avatar
+      }
+  }
+
   function setSecretWord(word) {
       mySecretWord.value = word
   }
@@ -59,6 +68,7 @@ export const useGameStore = defineStore('game', () => {
     updateState,
     setTime,
     setMyId,
-    setSecretWord
+    setSecretWord,
+    setProfile
   }
 })

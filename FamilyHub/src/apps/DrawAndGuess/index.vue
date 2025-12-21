@@ -41,9 +41,12 @@
       <div v-if="gameStore.phase === 'LOBBY' || gameStore.phase === 'GAME_END'" class="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/90 backdrop-blur">
           <h2 class="text-3xl font-bold mb-6 text-family-primary">你画我猜</h2>
           <div class="mb-8 space-y-2 w-64 max-h-48 overflow-y-auto">
-              <div v-for="p in gameStore.players" :key="p.id" class="flex justify-between p-2 bg-gray-50 rounded">
-                  <span>{{ p.name }}</span>
-                  <span class="font-bold">{{ p.score }}分</span>
+              <div v-for="p in gameStore.players" :key="p.id" class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                  <div class="flex items-center">
+                       <span class="text-2xl mr-2">{{ p.avatar || '😊' }}</span>
+                       <span class="font-bold">{{ p.name }}</span>
+                  </div>
+                  <span class="font-bold text-orange-500">{{ p.score }}分</span>
               </div>
           </div>
           <van-button round type="primary" size="large" color="#FF9F43" @click="startGame" class="w-48 shadow-lg !text-xl !font-bold">
@@ -76,7 +79,7 @@
       </van-field>
     </div>
     
-    <!-- Drawer Tools (Start Simple) -->
+    <!-- Drawer Tools -->
     <div v-if="gameStore.isDrawer && gameStore.phase === 'DRAWING'" class="p-4 bg-white border-t border-gray-100 flex justify-center text-gray-500">
         正在作画中...
     </div>
@@ -109,11 +112,13 @@
 <script setup>
 import { ref, onMounted, computed, watch } from "vue";
 import CanvasBoard from "./components/CanvasBoard.vue";
-import { useGameBridge } from "../../core/useGameBridge"; // Keep if needed directly
+import { useGameBridge } from "../../core/useGameBridge"; 
 import { useSync } from "./composables/useSync";
 import { useGameStore } from "@/stores/game";
+import confetti from 'canvas-confetti';
+import { showToast, showDialog } from 'vant';
 
-const { sendGameStart, sendSelectWord, sendGuess } = useSync();
+const { sendGameStart, sendSelectWord, sendGuess, onAction } = useSync();
 const gameStore = useGameStore();
 
 const guessInput = ref("");
@@ -122,6 +127,34 @@ const guessInput = ref("");
 const showWordSelect = computed(() => {
     return gameStore.phase === 'SELECTING' && gameStore.isDrawer;
 });
+
+// Event Listeners for Effects
+onMounted(() => {
+    // Listen for round results to show confetti/toast
+    // useSync's onAction wrapper exposes the raw listener
+    onAction('draw-guess', 'round-result', ({ reason, word }) => {
+        showDialog({
+            title: reason,
+            message: `答案是：${word}`,
+            theme: 'round-button',
+        });
+        
+        if (reason.includes("猜对了")) {
+             confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: { y: 0.6 }
+            });
+        }
+    })
+    
+    onAction('draw-guess', 'chat-message', ({ from, text }) => {
+        showToast({
+            message: `${from}: ${text}`,
+            position: 'bottom',
+        });
+    })
+})
 
 // Logic
 function startGame() {
@@ -137,7 +170,4 @@ function submitGuess() {
   sendGuess(guessInput.value);
   guessInput.value = "";
 }
-
-// Lifecycle
-// onMounted handled in CanvasBoard or global hooks usually, but ensure listeners are active
 </script>

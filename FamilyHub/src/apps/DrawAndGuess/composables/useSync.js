@@ -96,6 +96,10 @@ export function useSync() {
     })
   }
 
+  function sendUpdateProfile(name, avatar) {
+      sendAction(APP_ID, 'update-profile', { name, avatar })
+  }
+
   return {
     broadcastStart,
     broadcastMove,
@@ -103,6 +107,7 @@ export function useSync() {
     sendGameStart,
     sendSelectWord,
     sendGuess,
+    sendUpdateProfile,
     initListeners
   }
 }

@@ -1,6 +1,12 @@
 <template>
-  <div class="h-full w-full flex flex-col items-center justify-center p-8">
+  <div class="h-full w-full flex flex-col items-center justify-center p-8 relative">
     <h1 class="text-3xl font-bold mb-8 text-family-primary">今天玩点什么？</h1>
+    
+    <!-- User Info Card -->
+    <div v-if="myProfile" class="absolute top-4 right-4 flex items-center bg-white px-3 py-1 rounded-full shadow-sm cursor-pointer" @click="showProfileEdit = true">
+        <span class="text-2xl mr-2">{{ myProfile.avatar || '😊' }}</span>
+        <span class="font-bold text-gray-700">{{ myProfile.name }}</span>
+    </div>
 
     <div class="flex space-x-6 overflow-x-auto pb-8 w-full justify-center">
       <!-- Game Card: Draw & Guess -->
@@ -34,9 +40,67 @@
         <span>敬请期待</span>
       </div>
     </div>
+    
+    <!-- Profile Setup Dialog -->
+    <van-dialog
+      v-model:show="showProfileEdit"
+      title="给自己起个名字"
+      show-cancel-button
+      @confirm="saveProfile"
+    >
+      <div class="p-6 flex flex-col items-center">
+        <div class="flex space-x-4 mb-6">
+            <button 
+                v-for="emoji in avatars" 
+                :key="emoji"
+                class="text-4xl p-2 rounded-xl border-2 transition-all"
+                :class="tempAvatar === emoji ? 'border-family-primary bg-orange-50' : 'border-transparent hover:bg-gray-100'"
+                @click="tempAvatar = emoji"
+            >
+                {{ emoji }}
+            </button>
+        </div>
+        <van-field
+          v-model="tempName"
+          placeholder="例如：画画小能手"
+          border
+          class="bg-gray-50 rounded-lg"
+          input-align="center"
+        />
+      </div>
+    </van-dialog>
   </div>
 </template>
 
 <script setup>
-// Lobby logic if needed
+import { ref, computed, onMounted } from 'vue'
+import { useGameStore } from '@/stores/game'
+import { useSync } from '@/apps/DrawAndGuess/composables/useSync'
+
+const gameStore = useGameStore()
+const { sendUpdateProfile } = useSync()
+
+const showProfileEdit = ref(false)
+const avatars = ['🐶', '🐱', '🦁', '🦊', '🐼', '🐰']
+const tempName = ref('')
+const tempAvatar = ref('🐶')
+
+const myProfile = computed(() => {
+    return gameStore.players.find(p => p.id === gameStore.myPlayerId)
+})
+
+onMounted(() => {
+    // Check if we need to set profile
+    // Simple check: if name starts with "User " (default), prompt change
+    if (myProfile.value && myProfile.value.name.startsWith('User ')) {
+        tempName.value = ''
+        showProfileEdit.value = true
+    }
+})
+
+function saveProfile() {
+    if (!tempName.value) tempName.value = `玩家${Math.floor(Math.random()*1000)}`
+    sendUpdateProfile(tempName.value, tempAvatar.value)
+    gameStore.setProfile(tempName.value, tempAvatar.value)
+}
 </script>
