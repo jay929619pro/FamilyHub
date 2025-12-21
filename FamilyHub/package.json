@@ -11,11 +11,13 @@
   "dependencies": {
     "@vueuse/core": "^14.1.0",
     "gsap": "^3.14.2",
+    "konva": "^10.0.12",
     "perfect-freehand": "^1.2.2",
     "pinia": "^3.0.4",
     "socket.io-client": "^4.8.1",
     "vant": "^4.9.22",
     "vue": "^3.5.24",
+    "vue-konva": "^3.2.6",
     "vue-router": "^4.6.4"
   },
   "devDependencies": {

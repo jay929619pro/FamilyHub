@@ -14,6 +14,9 @@ importers:
       gsap:
         specifier: ^3.14.2
         version: 3.14.2
+      konva:
+        specifier: ^10.0.12
+        version: 10.0.12
       perfect-freehand:
         specifier: ^1.2.2
         version: 1.2.2
@@ -29,6 +32,9 @@ importers:
       vue:
         specifier: ^3.5.24
         version: 3.5.26
+      vue-konva:
+        specifier: ^3.2.6
+        version: 3.2.6(konva@10.0.12)(vue@3.5.26)
       vue-router:
         specifier: ^4.6.4
         version: 4.6.4(vue@3.5.26)
@@ -668,6 +674,9 @@ packages:
     resolution: {integrity: sha512-ekilCSN1jwRvIbgeg/57YFh8qQDNbwDb9xT/qu2DAHbFFZUicIl4ygVaAvzveMhMVr3LnpSKTNnwt8PoOfmKhQ==}
     hasBin: true
 
+  konva@10.0.12:
+    resolution: {integrity: sha512-DHmkeG5FbW6tLCkbMQTi1ihWycfzljrn0V7umUUuewxx7aoINcI71ksgBX9fTPNXhlsK4/JoMgKwI/iCde+BRw==}
+
   lightningcss-android-arm64@1.30.2:
     resolution: {integrity: sha512-BH9sEdOCahSgmkVhBLeU7Hc9DWeZ1Eb6wNS6Da8igvUwAe0sqROHddIlvU06q3WyXVEOYDZ6ykBZQnjTbmo4+A==}
     engines: {node: '>= 12.0.0'}
@@ -930,6 +939,13 @@ packages:
         optional: true
       yaml:
         optional: true
+
+  vue-konva@3.2.6:
+    resolution: {integrity: sha512-QtiM/BYHs4gyRqhg6w0lHYGONb936qD5PeGpSFFnFzTLcOaHXd3EAas2PafrWbcILdHAUNm+0j7+djJw6g6XCw==}
+    engines: {node: '>= 4.0.0', npm: '>= 3.0.0'}
+    peerDependencies:
+      konva: '>7'
+      vue: ^3
 
   vue-router@4.6.4:
     resolution: {integrity: sha512-Hz9q5sa33Yhduglwz6g9skT8OBPii+4bFn88w6J+J4MfEo4KRRpmiNG/hHHkdbRFlLBOqxN8y8gf2Fb0MTUgVg==}
@@ -1445,6 +1461,8 @@ snapshots:
 
   jiti@2.6.1: {}
 
+  konva@10.0.12: {}
+
   lightningcss-android-arm64@1.30.2:
     optional: true
 
@@ -1689,6 +1707,11 @@ snapshots:
       fsevents: 2.3.3
       jiti: 2.6.1
       lightningcss: 1.30.2
+
+  vue-konva@3.2.6(konva@10.0.12)(vue@3.5.26):
+    dependencies:
+      konva: 10.0.12
+      vue: 3.5.26
 
   vue-router@4.6.4(vue@3.5.26):
     dependencies:
