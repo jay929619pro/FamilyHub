@@ -5,6 +5,10 @@
       class="flex justify-between items-center p-4 bg-white/50 backdrop-blur-sm z-10"
     >
       <div class="flex items-center space-x-4">
+        <router-link to="/" class="p-2 bg-white rounded-full shadow-sm hover:bg-gray-100 transition-colors">
+            🏠
+        </router-link>
+
         <div class="flex flex-col">
             <div class="text-xs text-gray-500">Round</div>
             <div class="font-bold">{{ gameStore.round }} / {{ gameStore.totalRounds }}</div>
@@ -118,8 +122,11 @@ import { useGameStore } from "@/stores/game";
 import confetti from 'canvas-confetti';
 import { showToast, showDialog } from 'vant';
 
-const { sendGameStart, sendSelectWord, sendGuess, onAction } = useSync();
+const { sendGameStart, sendSelectWord, sendGuess, onAction, initListeners } = useSync();
 const gameStore = useGameStore();
+
+// Initialize socket listeners
+initListeners();
 
 const guessInput = ref("");
 

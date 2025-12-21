@@ -108,6 +108,7 @@ export function useSync() {
     sendSelectWord,
     sendGuess,
     sendUpdateProfile,
-    initListeners
+    initListeners,
+    onAction // Export this so components can listen to custom events
   }
 }
