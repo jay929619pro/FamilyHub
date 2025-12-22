@@ -14,6 +14,9 @@ importers:
       pinia:
         specifier: ^3.0.4
         version: 3.0.4(vue@3.5.26)
+      pinyin-pro:
+        specifier: ^3.27.0
+        version: 3.27.0
       socket.io-client:
         specifier: ^4.8.1
         version: 4.8.1
@@ -721,6 +724,9 @@ packages:
       typescript:
         optional: true
 
+  pinyin-pro@3.27.0:
+    resolution: {integrity: sha512-Osdgjwe7Rm17N2paDMM47yW+jUIUH3+0RGo8QP39ZTLpTaJVDK0T58hOLaMQJbcMmAebVuK2ePunTEVEx1clNQ==}
+
   postcss-value-parser@4.2.0:
     resolution: {integrity: sha512-1NNCs6uurfkVbeXG4S8JFT9t19m45ICnif8zWLd5oPSZ50QnwMfK+H3jv408d4jw/7Bttv5axS5IiHoLaVNHeQ==}
 
@@ -1380,6 +1386,8 @@ snapshots:
     dependencies:
       '@vue/devtools-api': 7.7.9
       vue: 3.5.26
+
+  pinyin-pro@3.27.0: {}
 
   postcss-value-parser@4.2.0: {}
 
