@@ -28,7 +28,9 @@ const PHASES = {
 const WORDS_POOL = ["苹果", "香蕉", "大象", "电脑", "火箭", "披萨", "吉他", "太阳", "外星人"];
 
 // --- In-Memory State ---
+// --- In-Memory State ---
 const rooms = {};
+const socketToUser = new Map(); // socketId -> userId
 
 // Helper to get or create room
 const getRoom = roomId => {
@@ -73,13 +75,16 @@ function broadcastState(io, roomId) {
 
   // Send secret word only to drawer
   if (room.gameState.phase === PHASES.DRAWING || room.gameState.phase === PHASES.SELECTING) {
-    const drawerSocket = io.sockets.sockets.get(room.gameState.drawerId);
-    if (drawerSocket) {
-      drawerSocket.emit("message", {
-        appId: "draw-guess",
-        type: "secret-word",
-        payload: room.gameState.word
-      });
+    const drawerUser = room.users.get(room.gameState.drawerId);
+    if (drawerUser && drawerUser.socketId) {
+      const drawerSocket = io.sockets.sockets.get(drawerUser.socketId);
+      if (drawerSocket) {
+        drawerSocket.emit("message", {
+          appId: "draw-guess",
+          type: "secret-word",
+          payload: room.gameState.word
+        });
+      }
     }
   }
 }
@@ -180,18 +185,35 @@ function endGame(io, roomId) {
 }
 
 io.on("connection", socket => {
-  console.log("User connected:", socket.id);
+  const userId = socket.handshake.query.userId || socket.id;
+  console.log(`User connected: ${socket.id} (mapped to ${userId})`);
+
+  // Register socket -> user mapping
+  socketToUser.set(socket.id, userId);
 
   const DEMO_ROOM = "family-room-1";
   socket.join(DEMO_ROOM);
 
   const room = getRoom(DEMO_ROOM);
-  // Default user setup
-  room.users.set(socket.id, {
-    id: socket.id,
-    name: `User ${socket.id.substr(0, 4)}`,
-    score: 0
-  });
+
+  // Check if user exists (Reconnection)
+  let user = room.users.get(userId);
+  if (user) {
+    console.log(`User ${user.name} reconnected`);
+    user.socketId = socket.id; // Update socket reference
+    user.isOnline = true;
+  } else {
+    // New User
+    user = {
+      id: userId,
+      socketId: socket.id,
+      name: `User ${userId.substr(-4)}`,
+      score: 0,
+      avatar: "😊",
+      isOnline: true
+    };
+    room.users.set(userId, user);
+  }
 
   // Send initial state
   socket.emit("message", {
@@ -204,6 +226,11 @@ io.on("connection", socket => {
   socket.on("action", ({ appId, type, payload }) => {
     if (appId !== "draw-guess") return;
 
+    // Resolve Actor
+    const actorId = socketToUser.get(socket.id);
+    const actor = room.users.get(actorId);
+    if (!actor) return;
+
     // --- Game Actions ---
 
     if (type === "game-start") {
@@ -211,36 +238,35 @@ io.on("connection", socket => {
         room.gameState.round = 1;
         // Reset scores
         room.users.forEach(u => (u.score = 0));
-        room.gameState.drawerId = null; // nextTurn will set it
+        room.gameState.drawerId = null;
         startGameLoop(io, DEMO_ROOM);
         nextTurn(io, DEMO_ROOM);
       }
     } else if (type === "select-word") {
-      if (socket.id === room.gameState.drawerId && room.gameState.phase === PHASES.SELECTING) {
+      if (actorId === room.gameState.drawerId && room.gameState.phase === PHASES.SELECTING) {
         room.gameState.word = payload.word;
         room.gameState.phase = PHASES.DRAWING;
-        room.gameState.timeLeft = 5;
+        room.gameState.timeLeft = 60;
         broadcastState(io, DEMO_ROOM);
       }
     } else if (type === "guess") {
-      if (room.gameState.phase === PHASES.DRAWING && socket.id !== room.gameState.drawerId) {
+      if (room.gameState.phase === PHASES.DRAWING && actorId !== room.gameState.drawerId) {
         const guess = payload.text;
         if (guess === room.gameState.word) {
           // Correct!
-          const user = room.users.get(socket.id);
           const drawer = room.users.get(room.gameState.drawerId);
 
           // Simple scoring
-          if (user) user.score += 10;
+          actor.score += 10;
           if (drawer) drawer.score += 5;
 
-          endRound(io, DEMO_ROOM, `${user.name} 猜对了！`);
+          endRound(io, DEMO_ROOM, `${actor.name} 猜对了！`);
         } else {
           // Forward incorrect guess to chat
           io.to(DEMO_ROOM).emit("message", {
             appId: "draw-guess",
             type: "chat-message",
-            payload: { from: room.users.get(socket.id).name, text: guess }
+            payload: { from: actor.name, text: guess }
           });
         }
       }
@@ -248,17 +274,14 @@ io.on("connection", socket => {
 
     // --- Profile Actions ---
     else if (type === "update-profile") {
-      const user = room.users.get(socket.id);
-      if (user) {
-        user.name = payload.name;
-        user.avatar = payload.avatar;
-        broadcastState(io, DEMO_ROOM);
-      }
+      actor.name = payload.name;
+      actor.avatar = payload.avatar;
+      broadcastState(io, DEMO_ROOM);
     }
 
     // --- Drawing Actions (Only allowed if Drawing Phase & Correct Drawer) ---
     else if (["draw-start", "draw-move", "draw-end"].includes(type)) {
-      if (room.gameState.phase === PHASES.DRAWING && socket.id === room.gameState.drawerId) {
+      if (room.gameState.phase === PHASES.DRAWING && actorId === room.gameState.drawerId) {
         if (type === "draw-start") room.drawState.push(payload);
         else if (type === "draw-move") {
           const line = room.drawState.find(l => l.id === payload.id);
@@ -271,11 +294,18 @@ io.on("connection", socket => {
 
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
-    if (rooms[DEMO_ROOM]) {
-      const room = rooms[DEMO_ROOM];
-      const wasDrawer = socket.id === room.gameState.drawerId;
+    const userId = socketToUser.get(socket.id);
+    socketToUser.delete(socket.id);
 
-      room.users.delete(socket.id);
+    if (rooms[DEMO_ROOM] && userId) {
+      const room = rooms[DEMO_ROOM];
+      const user = room.users.get(userId);
+      if (user) user.isOnline = false;
+
+      const wasDrawer = userId === room.gameState.drawerId;
+
+      // Do NOT delete user from room to enable reconnect
+      // room.users.delete(userId);
 
       // Handle drawer disconnect
       if (wasDrawer) {

@@ -40,18 +40,20 @@ export function useSync() {
   // --- Incoming Events (Receiver) ---
 
   function initListeners() {
-    // Watch for socket connection / ID availability
-    if (socket.value && socket.value.id) {
-      gameStore.setMyId(socket.value.id);
+    const unsubs = [];
+
+    // Set My ID from Persistent Storage
+    const userId = localStorage.getItem("family-hub-user-id");
+    if (userId) {
+      gameStore.setMyId(userId);
     }
 
-    // In case we are not connected yet, or ID changes (reconnect)
-    watch(
-      () => socket.value?.id,
-      newId => {
-        if (newId) {
-          console.log("My Player ID:", newId);
-          gameStore.setMyId(newId);
+    // Watch for connection to sync profile
+    const unwatch = watch(
+      () => connected.value,
+      isConnected => {
+        if (isConnected) {
+          console.log("Connected using ID:", userId);
 
           // Restore Profile if exists
           const stored = localStorage.getItem("family-hub-profile");
@@ -69,47 +71,68 @@ export function useSync() {
       },
       { immediate: true }
     );
+    unsubs.push(unwatch);
 
     // Core Game State
-    onAction(APP_ID, "game-state-update", state => {
-      gameStore.updateState(state);
-    });
+    unsubs.push(
+      onAction(APP_ID, "game-state-update", state => {
+        gameStore.updateState(state);
+      })
+    );
 
-    onAction(APP_ID, "timer-update", time => {
-      gameStore.setTime(time);
-    });
+    unsubs.push(
+      onAction(APP_ID, "timer-update", time => {
+        gameStore.setTime(time);
+      })
+    );
 
-    onAction(APP_ID, "secret-word", word => {
-      gameStore.setSecretWord(word);
-    });
+    unsubs.push(
+      onAction(APP_ID, "secret-word", word => {
+        gameStore.setSecretWord(word);
+      })
+    );
 
     // Drawing Sync
-    onAction(APP_ID, "draw-start", line => {
-      store.addLine(line);
-    });
+    unsubs.push(
+      onAction(APP_ID, "draw-start", line => {
+        store.addLine(line);
+      })
+    );
 
-    onAction(APP_ID, "draw-move", ({ id, point }) => {
-      store.appendPoint(id, point);
-    });
+    unsubs.push(
+      onAction(APP_ID, "draw-move", ({ id, point }) => {
+        store.appendPoint(id, point);
+      })
+    );
 
-    onAction(APP_ID, "draw-end", ({ id }) => {
-      // Optional: finalize line logic
-    });
+    unsubs.push(
+      onAction(APP_ID, "draw-end", ({ id }) => {
+        // Optional: finalize line logic
+      })
+    );
 
     // Board Control
-    onAction(APP_ID, "clear-board", () => {
-      store.clearAll();
-    });
+    unsubs.push(
+      onAction(APP_ID, "clear-board", () => {
+        store.clearAll();
+      })
+    );
 
-    onAction(APP_ID, "sync-state", lines => {
-      store.setRemoteLines(lines);
-    });
+    unsubs.push(
+      onAction(APP_ID, "sync-state", lines => {
+        store.setRemoteLines(lines);
+      })
+    );
 
     // Feedback
-    onAction(APP_ID, "round-result", ({ reason, word }) => {
-      // Could enable a toast or modal here
-      console.log(`Round End: ${reason}. Word was: ${word}`);
-    });
+    unsubs.push(
+      onAction(APP_ID, "round-result", ({ reason, word }) => {
+        // Could enable a toast or modal here
+        console.log(`Round End: ${reason}. Word was: ${word}`);
+      })
+    );
+
+    return () => unsubs.forEach(fn => fn());
   }
 
   function sendUpdateProfile(name, avatar) {

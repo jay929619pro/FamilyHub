@@ -15,9 +15,17 @@ const listeners = new Map(); // { appId: { type: [callbacks] } }
 function initSocket(url = "http://localhost:3000") {
   if (socket.value) return socket.value;
 
+  // Persistent User ID
+  let userId = localStorage.getItem("family-hub-user-id");
+  if (!userId) {
+    userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    localStorage.setItem("family-hub-user-id", userId);
+  }
+
   const s = io(url, {
     transports: ["websocket"],
-    autoConnect: true
+    autoConnect: true,
+    query: { userId }
   });
 
   s.on("connect", () => {

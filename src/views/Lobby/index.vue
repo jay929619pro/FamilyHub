@@ -40,27 +40,26 @@
     </div>
 
     <!-- Profile Setup Dialog -->
-    <van-dialog v-model:show="showProfileEdit" title="给自己起个名字" show-cancel-button @confirm="saveProfile">
-      <div class="p-6 flex flex-col items-center">
-        <div class="flex space-x-4 mb-6">
+    <van-dialog v-model:show="showProfileEdit" title="我是谁？" :show-confirm-button="false" :close-on-click-overlay="false">
+      <div class="p-6">
+        <div class="grid grid-cols-4 gap-4">
           <button
-            v-for="emoji in avatars"
-            :key="emoji"
-            class="text-4xl p-2 rounded-xl border-2 transition-all"
-            :class="tempAvatar === emoji ? 'border-family-primary bg-orange-50' : 'border-transparent hover:bg-gray-100'"
-            @click="tempAvatar = emoji"
+            v-for="role in presetRoles"
+            :key="role.name"
+            class="flex flex-col items-center p-3 rounded-xl transition-all hover:bg-orange-50 active:scale-95"
+            @click="selectRole(role)"
           >
-            {{ emoji }}
+            <span class="text-4xl mb-2">{{ role.avatar }}</span>
+            <span class="text-sm font-bold text-gray-700">{{ role.name }}</span>
           </button>
         </div>
-        <van-field v-model="tempName" placeholder="例如：画画小能手" border class="bg-gray-50 rounded-lg" input-align="center" />
       </div>
     </van-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { useGameStore } from "@/stores/game";
 import { useSync } from "@/apps/DrawAndGuess/composables/useSync";
 
@@ -68,61 +67,55 @@ const gameStore = useGameStore();
 const { sendUpdateProfile } = useSync();
 
 const showProfileEdit = ref(false);
-const avatars = ["🐶", "🐱", "🦁", "🦊", "🐼", "🐰"];
-const tempName = ref("");
-const tempAvatar = ref("🐶");
+
+const presetRoles = [
+  { name: "爸爸", avatar: "👨" },
+  { name: "妈妈", avatar: "👩" },
+  { name: "宝宝", avatar: "👶" },
+  { name: "舅舅", avatar: "🧔" }
+];
 
 const myProfile = computed(() => {
   return gameStore.players.find(p => p.id === gameStore.myPlayerId);
 });
 
+// Store cleanup function
+let cleanupListeners = null;
+
 onMounted(() => {
-  // Check if we need to set profile
+  // 1. Initialize Sync to get myPlayerId and update store
+  cleanupListeners = useSync().initListeners();
+
+  // 2. Check Local Storage for immediate UI decision
   const stored = localStorage.getItem("family-hub-profile");
+  let hasLocalProfile = false;
+
   if (stored) {
     try {
-      const { name, avatar } = JSON.parse(stored);
-      if (name) {
-        tempName.value = name;
-        tempAvatar.value = avatar;
-        // Auto-login with stored profile
-        sendUpdateProfile(name, avatar);
-        gameStore.setProfile(name, avatar);
-      }
-    } catch (e) {
-      console.error("Failed to load profile", e);
-    }
+      const { name } = JSON.parse(stored);
+      if (name) hasLocalProfile = true;
+    } catch (e) {}
   }
 
-  // Checking if profile is still default "User ..."
-  // If we just restored from localStorage, myProfile might still be undefined until next tick or server response
-  // But we optimistically set it in gameStore above.
-
-  // Give a small delay or check store directly
-  setTimeout(() => {
-    const currentName = gameStore.players.find(p => p.id === gameStore.myPlayerId)?.name;
-    if (!currentName || currentName.startsWith("User ")) {
-      // Only show dialog if we didn't successfully restore a valid name
-      if (!tempName.value) {
-        showProfileEdit.value = true;
-      }
-    }
-  }, 500);
+  // 3. Only show dialog if we definitely don't have a profile
+  if (!hasLocalProfile) {
+    // Wait a bit to see if server has info (edge case), basically redundant if local is missing
+    // But let's just show it immediately if local is missing
+    showProfileEdit.value = true;
+  }
 });
 
-function saveProfile() {
-  if (!tempName.value) tempName.value = `玩家${Math.floor(Math.random() * 1000)}`;
+onBeforeUnmount(() => {
+  if (cleanupListeners) cleanupListeners();
+});
 
+function selectRole(role) {
   // Save to local storage
-  localStorage.setItem(
-    "family-hub-profile",
-    JSON.stringify({
-      name: tempName.value,
-      avatar: tempAvatar.value
-    })
-  );
+  localStorage.setItem("family-hub-profile", JSON.stringify(role));
 
-  sendUpdateProfile(tempName.value, tempAvatar.value);
-  gameStore.setProfile(tempName.value, tempAvatar.value);
+  sendUpdateProfile(role.name, role.avatar);
+  gameStore.setProfile(role.name, role.avatar);
+
+  showProfileEdit.value = false;
 }
 </script>
