@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+@theme {
+  /* 这里可以添加自定义主题变量，v4 新特性 */
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* 防止移动端滚动回弹 */
+}
