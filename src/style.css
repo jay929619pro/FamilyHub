@@ -1,7 +1,0 @@
-/* src/style.css */
-@import "tailwindcss";
-
-/* 如果有 Vant 或其他全局样式可以在下面继续写 */
-:root {
-  --van-primary-color: #FF9F43; /* 对应我们之前规划的家庭主题橙色 */
-}
