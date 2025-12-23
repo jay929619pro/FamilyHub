@@ -144,8 +144,18 @@ function nextRound() {
 io.on("connection", socket => {
   console.log(`[Connect] ${socket.id}`);
 
+  // Send current state immediately so new client knows occupied roles
+  socket.emit("stateUpdate", GAME_STATE);
+
   // -- Lobby Logic --
   socket.on("join_game", ({ name }) => {
+    // 1. Check if name is taken
+    const isTaken = GAME_STATE.players.some(p => p.name === name && p.id !== socket.id);
+    if (isTaken) {
+      socket.emit("error_msg", "该角色已被占用!");
+      return;
+    }
+
     const existing = GAME_STATE.players.find(p => p.id === socket.id);
     if (!existing) {
       GAME_STATE.players.push({ id: socket.id, name });

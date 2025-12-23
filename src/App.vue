@@ -169,7 +169,21 @@ watch(isDrawer, newVal => {
 onMounted(() => {
   socket.on("connect", () => {
     if (myName.value) {
+      // Re-join logic: requires validation again?
+      // Actually if connection drops, server clears player.
+      // So we just try to join. If taken (by someone else?), server errors.
       socket.emit("join_game", { name: myName.value });
+    }
+  });
+
+  socket.on("error_msg", msg => {
+    Snackbar.warning(msg);
+    // If join failed, maybe show selector again?
+    // But simplistic for now: just toast.
+    if (msg.includes("已被占用")) {
+      myName.value = "";
+      localStorage.removeItem("family_hub_name");
+      showRoleSelect.value = true;
     }
   });
 
@@ -242,13 +256,13 @@ onMounted(() => {
     </header>
 
     <!-- 2. Main Game Board -->
-    <main class="flex-1 w-full relative bg-white border-t-2 border-b-2 border-amber-200 overflow-hidden shadow-inner">
+    <main class="flex-1 w-full relative bg-white border-t-2 border-b-2 border-amber-200 overflow-hidden shadow-inner pb-20">
       <GameBoard
         ref="gameBoardRef"
         :is-drawer="isDrawer"
         :disabled="status !== 'playing'"
         :stroke-color="currentTool === 'eraser' ? '#ffffff' : currentColor"
-        :stroke-width="currentTool === 'eraser' ? 20 : 6"
+        :stroke-width="currentTool === 'eraser' ? 60 : 6"
       />
 
       <!-- Drawer Toolbar -->
@@ -310,14 +324,12 @@ onMounted(() => {
           <p class="text-gray-300 text-sm mb-1">🎉 本局获胜</p>
           <div class="flex items-center justify-center gap-2">
             <var-avatar size="small" :style="{ background: getAvatarColor(roundWinnerName) }">{{ roundWinnerName }}</var-avatar>
-            <span class="text-2xl font-bold text-yellow-400">{{ roundWinnerName }}</span>
           </div>
         </div>
 
         <div class="mb-8 text-center bg-white/10 px-6 py-2 rounded-lg">
           <p class="text-gray-300 text-xs mb-1">下一位画家</p>
           <div class="flex items-center justify-center gap-2">
-            <span class="text-xl font-bold text-white">{{ nextDrawerName }}</span>
             <var-avatar size="mini" :style="{ background: getAvatarColor(nextDrawerName) }">{{ nextDrawerName }}</var-avatar>
           </div>
         </div>
@@ -336,7 +348,7 @@ onMounted(() => {
     </main>
 
     <!-- 4. Footer -->
-    <footer class="h-32 bg-white flex items-center justify-center px-2 overflow-x-auto">
+    <footer class="h-24 bg-white flex items-center justify-center px-2 overflow-x-auto">
       <div
         v-for="p in players"
         :key="p.id"
@@ -359,12 +371,6 @@ onMounted(() => {
           </div>
         </div>
         <div class="font-bold text-amber-600 font-mono">{{ scores[p.name] || 0 }}</div>
-        <div v-if="isDrawer && p.id !== socketId" class="absolute -top-2 w-full flex justify-center transform scale-90">
-          <!-- Hint text instead of button -->
-          <span class="text-[10px] text-amber-500 bg-white/80 px-1 rounded border border-amber-200 shadow-sm animate-pulse"
-            >点击选为赢家</span
-          >
-        </div>
       </div>
       <div v-if="players.length === 0" class="w-full text-center text-gray-300 text-sm">Waiting for players...</div>
     </footer>
@@ -379,8 +385,12 @@ onMounted(() => {
             :key="role"
             block
             size="large"
-            :style="{ background: getAvatarColor(role), color: 'white' }"
-            class="shadow-md"
+            :disabled="players.some(p => p.name === role)"
+            :style="{
+              background: players.some(p => p.name === role) ? '#e5e7eb' : getAvatarColor(role),
+              color: players.some(p => p.name === role) ? '#9ca3af' : 'white'
+            }"
+            class="shadow-md transition-all"
             @click="selectRole(role)"
           >
             {{ role }}

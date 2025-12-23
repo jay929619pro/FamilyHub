@@ -274,7 +274,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div ref="containerRef" class="relative w-full h-full bg-white shadow-inner overflow-hidden select-none touch-none">
+  <div ref="containerRef" class="relative w-full h-full shadow-inner overflow-hidden select-none touch-none">
     <canvas
       ref="canvasRef"
       class="block cursor-crosshair"
