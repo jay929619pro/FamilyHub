@@ -405,39 +405,39 @@ onMounted(() => {
               </var-avatar>
             </div>
 
-            <!-- Info Block (Compact) -->
-            <div class="ml-1.5 flex flex-col justify-center min-w-[3em]">
-              <!-- Name & Crown (Hidden for Drawer) -->
-              <div v-if="p.id !== currentDrawerId" class="flex items-center gap-0.5">
-                <span class="text-[10px] font-bold truncate max-w-[4.5em] leading-none text-gray-600">
-                  {{ p.name }}
-                </span>
-
-                <var-icon v-if="scores[p.name] > 0 && scores[p.name] === maxScore" name="crown" size="8" color="#f59e0b" class="ml-0.5" />
-              </div>
-
-              <!-- Drawer Status (Sole Content for Drawer) -->
-              <div v-if="p.id === currentDrawerId" class="flex items-center flex-col h-full">
-                <span class="text-[11px] font-black text-orange-500 tracking-widest">正在作画</span>
+            <!-- Info Block (No Name, Just Score/Status) -->
+            <div class="ml-1.5 flex flex-col justify-center">
+              <!-- Drawer Status -->
+              <div v-if="p.id === currentDrawerId" class="flex items-center">
+                <var-loading type="wave" size="9" color="#f97316" class="mr-1" />
+                <span class="text-[10px] font-black text-orange-500 tracking-widest leading-none">正在作画</span>
               </div>
 
               <!-- Score (For others) -->
-              <div v-else class="flex items-center mt-0.5 transition-transform duration-200" :class="{ 'scale-110': scoreEffects[p.id] }">
+              <div v-else class="flex items-center transition-transform duration-200" :class="{ 'scale-110': scoreEffects[p.id] }">
                 <var-icon
                   :name="scoreEffects[p.id] ? 'fire' : 'star'"
-                  size="10"
+                  size="12"
                   :color="scoreEffects[p.id] ? '#ef4444' : '#fbbf24'"
                   class="mr-0.5"
                   :class="{ 'animate-pulse': scoreEffects[p.id] }"
                 />
                 <span
-                  class="text-[11px] font-mono leading-none"
-                  :class="[scoreEffects[p.id] ? 'text-red-500 font-black' : 'text-gray-500 font-bold']"
+                  class="text-xs font-mono leading-none pt-0.5"
+                  :class="[scoreEffects[p.id] ? 'text-red-500 font-black' : 'text-gray-600 font-bold']"
                 >
                   {{ scores[p.name] || 0 }}
                 </span>
               </div>
             </div>
+
+            <!-- Add Score Action (Restored) -->
+            <var-icon
+              v-if="isDrawer && p.id !== currentDrawerId"
+              name="plus-circle-outline"
+              size="18"
+              class="ml-1.5 text-gray-300 hover:text-green-500 transition-colors active:scale-95"
+            />
           </div>
         </transition-group>
       </div>
