@@ -107,8 +107,8 @@ function handleAvatarClick(player) {
 
   Dialog({
     title: "🎉 猜对啦！",
-    message: `确认是 ${player.name} 第一个猜对了吗？\n系统将自动为 TA 增加 10 分。`,
-    confirmButtonText: "是的，加分",
+    message: `确认是 ${player.name} 第一个猜对了吗？\n系统将自动为 TA 增加 1 颗星。`,
+    confirmButtonText: "是的，加星",
     cancelButtonText: "手滑了",
     confirmButtonTextColor: "#10b981",
     onConfirm: () => {
@@ -183,6 +183,25 @@ onMounted(() => {
 
   socket.on("sync_history", history => {
     gameBoardRef.value?.replayHistory(history);
+  });
+
+  socket.on("player_won", ({ winnerId, name }) => {
+    // Play sound or effect
+    speak(`恭喜${name}集齐五颗星，获得胜利！`);
+    
+    Dialog({
+      title: "🏆 冠军诞生！",
+      message: `🎉 恭喜 ${name} 率先集满 5 颗星，获得最终胜利！`,
+      confirmButtonText: "再来一局",
+      confirmButtonTextColor: "#f59e0b", // Gold
+      onConfirm: () => {
+        // Just close the dialog. 
+        // Game flow:
+        // 1. Server already set status='waiting'.
+        // 2. Scores are kept for display (Celebration).
+        // 3. Scores will be auto-reset by Server when anyone counts down 'startRound' again.
+      }
+    });
   });
 
   // Wake Lock logic omitted for brevity, assumed separate or browser handled usually
@@ -384,7 +403,7 @@ onMounted(() => {
     <!-- 3. Footer Player Bar -->
     <!-- 3. Footer Player Bar -->
     <div
-      class="w-full shrink-0 bg-white border-t border-gray-100 z-50 flex items-center px-4 py-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] overflow-x-auto no-scrollbar pb-safe"
+      class="w-full h-50 shrink-0 bg-white border-t border-gray-100 z-50 flex items-start px-4 py-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] overflow-x-auto no-scrollbar pb-safe"
     >
       <div v-if="players.length === 0" class="w-full flex items-center justify-center gap-2 text-gray-400 py-2">
         <var-loading type="cube" size="small" color="#aaa" />
@@ -424,20 +443,19 @@ onMounted(() => {
               </div>
 
               <!-- Score (For others) -->
-              <div v-else class="flex items-center transition-transform duration-200" :class="{ 'scale-110': scoreEffects[p.id] }">
-                <var-icon
-                  :name="scoreEffects[p.id] ? 'fire' : 'star'"
-                  size="12"
-                  :color="scoreEffects[p.id] ? '#ef4444' : '#fbbf24'"
-                  class="mr-0.5"
-                  :class="{ 'animate-pulse': scoreEffects[p.id] }"
+              <div v-else class="flex items-center justify-center min-w-[80px]">
+                 <var-rate
+                  :model-value="Number(scores[p.name] || 0)"
+                  :count="5"
+                  readonly
+                  icon="star"
+                  empty-icon="star-outline"
+                  color="#fbbf24"
+                  empty-color="#e2e8f0"
+                  :size="14"
+                  class="transition-transform duration-200"
+                  :class="{ 'scale-125': scoreEffects[p.id] }"
                 />
-                <span
-                  class="text-xs font-mono leading-none pt-0.5"
-                  :class="[scoreEffects[p.id] ? 'text-red-500 font-black' : 'text-gray-600 font-bold']"
-                >
-                  {{ scores[p.name] || 0 }}
-                </span>
               </div>
             </div>
 

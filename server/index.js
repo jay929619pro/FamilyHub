@@ -68,6 +68,13 @@ function resetToLobby() {
  * Start a new round with specific drawer (Manual Mode)
  */
 function startRound(drawerId) {
+  // 0. Auto-reset scores if previous game finished (someone reached 5 stars)
+  const hasWinner = Object.values(GAME_STATE.scores).some(s => Number(s) >= 5);
+  if (hasWinner) {
+    console.log("[Game] Resetting scores for new game.");
+    Object.keys(GAME_STATE.scores).forEach(key => (GAME_STATE.scores[key] = 0));
+  }
+
   // 1. Set Drawer
   GAME_STATE.currentDrawerId = drawerId;
   GAME_STATE.status = "playing";
@@ -81,7 +88,8 @@ function startRound(drawerId) {
   GAME_STATE.roundWinnerId = null;
   GAME_STATE.recording = [];
   // Reset scores for new round/drawer
-  GAME_STATE.players.forEach(p => (GAME_STATE.scores[p.name] = 0));
+  // Scores are NOT reset here, they accumulate until someone wins
+  // GAME_STATE.players.forEach(p => (GAME_STATE.scores[p.name] = 0));
 
   io.emit("clear_canvas");
   broadcastState();
@@ -143,6 +151,12 @@ io.on("connection", socket => {
     }
   });
 
+  socket.on("reset_game", () => {
+    // Reset all scores
+    GAME_STATE.players.forEach(p => (GAME_STATE.scores[p.name] = 0));
+    resetToLobby();
+  });
+
   socket.on("change_word", () => {
     // Only drawer can change word
     if (socket.id === GAME_STATE.currentDrawerId) {
@@ -190,17 +204,31 @@ io.on("connection", socket => {
 
     // 1. Update Score
     const name = targetPlayer.name;
-    const currentScore = GAME_STATE.scores[name] || 0;
-    GAME_STATE.scores[name] = currentScore + 10; // Fixed +10 for now
+    let currentScore = Number(GAME_STATE.scores[name]);
+    if (isNaN(currentScore)) currentScore = 0;
+    
+    const newScore = Math.min(5, currentScore + 1); // Cap at 5
+    GAME_STATE.scores[name] = newScore;
 
-    // 2. Set Winner
+    console.log(`[Score] ${name}: ${currentScore} -> ${newScore}`); // Debug log
+
+    // 2. Set Round Winner
     GAME_STATE.roundWinnerId = winnerId;
 
-    // 3. Celebrate!
+    // 3. Broadcast Update
     broadcastState();
-    io.emit("score_animate", { playerId: winnerId, amount: 10 });
+    io.emit("score_animate", { playerId: winnerId, amount: 1 });
 
-    // Game CONTINUES. Drawer must manually click "Next Question" or "Exit"
+    // 4. Check Global Win Condition (5 Stars)
+    if (newScore >= 5) {
+      console.log(`[Game] Winner: ${name}`);
+      // End game immediately
+      GAME_STATE.status = "waiting";
+      GAME_STATE.currentDrawerId = null;
+      
+      broadcastState();
+      io.emit("player_won", { winnerId, name });
+    }
   });
 
   // -- Cleanup --
