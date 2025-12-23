@@ -194,7 +194,7 @@ onMounted(() => {
     <!-- 1. AppBar Header -->
     <var-app-bar color="white" text-color="#333" elevation="2" title-position="center" class="z-50" :safe-area-top="true">
       <template #left>
-        <var-button round text color="transparent" text-color="#999" class="mr-2" @click="$router.push('/')">
+        <var-button v-if="status !== 'playing'" round text color="transparent" text-color="#999" class="mr-2" @click="$router.push('/')">
           <var-icon name="home-outline" size="24" />
         </var-button>
 
