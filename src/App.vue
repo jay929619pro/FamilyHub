@@ -194,12 +194,17 @@ onMounted(() => {
     <!-- 1. AppBar Header -->
     <var-app-bar color="white" text-color="#333" elevation="2" title-position="center" class="z-50" :safe-area-top="true">
       <template #left>
-        <var-chip :type="isDrawer ? 'primary' : 'default'" size="mini" class="font-bold shadow-sm transition-all duration-300">
-          <template #left>
-            <var-icon :name="isDrawer ? 'palette' : 'view-outline'" size="16" class="mr-1" />
-          </template>
-          {{ isDrawer ? "我是画家" : "我是猜手" }}
-        </var-chip>
+        <var-button
+          v-if="isDrawer"
+          text-color="#fff"
+          size="small"
+          class="shadow-lg px-3 font-bold tracking-wide rounded-lg border-none"
+          style="background: linear-gradient(to right, #ef4444, #dc2626)"
+          @click="giveUpDrawer"
+        >
+          <var-icon name="power" size="16" class="mr-1" />
+          结束
+        </var-button>
       </template>
 
       <template #default>
@@ -224,22 +229,23 @@ onMounted(() => {
       </template>
 
       <template #right>
-        <div class="flex items-center gap-1" v-if="isDrawer">
-          <var-button round text color="#ef4444" @click="giveUpDrawer">
-            <var-icon name="close-circle-outline" size="24" />
+        <div v-if="isDrawer" class="pr-2">
+          <var-button
+            text-color="#fff"
+            size="small"
+            @click="changeWord"
+            class="shadow-lg px-3 font-bold tracking-wide rounded-lg border-none"
+            style="background: linear-gradient(to right, #3b82f6, #2563eb)"
+          >
+            <span class="mr-1">换一题</span>
+            <var-icon name="refresh" size="16" />
           </var-button>
-          <var-button round text type="primary" @click="changeWord">
-            <var-icon name="refresh" size="24" />
-          </var-button>
-        </div>
-        <div v-else>
-          <!-- Placeholder for balance or visual rhythm -->
         </div>
       </template>
     </var-app-bar>
 
     <!-- 2. Main Game Board -->
-    <main class="flex-1 w-full relative bg-white overflow-hidden shadow-inner">
+    <main class="flex-1 w-full relative bg-[#fffcef] overflow-hidden shadow-inner">
       <GameBoard
         ref="gameBoardRef"
         :is-drawer="isDrawer"

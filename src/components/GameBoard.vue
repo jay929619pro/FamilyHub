@@ -100,8 +100,8 @@ function initCanvas() {
 
   ctx = canvas.getContext("2d", { alpha: false }); // 优化：关闭透明通道
 
-  // 填充白色背景
-  ctx.fillStyle = "#ffffff";
+  // 填充米黄色背景
+  ctx.fillStyle = "#fffcef";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // 设置线条样式
@@ -178,7 +178,7 @@ function drawLineLocally(startLogical, endLogical, color, width) {
 // 清空画布
 function clearCanvas(emit = true) {
   if (!ctx || !canvasRef.value) return;
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = "#fffcef";
   ctx.fillRect(0, 0, canvasRef.value.width, canvasRef.value.height);
 
   if (emit && props.isDrawer) {
