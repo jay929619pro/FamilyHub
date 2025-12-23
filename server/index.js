@@ -33,25 +33,17 @@ const GAME_STATE = {
   scores: {}, // { [name]: number }
   currentDrawerId: null,
   currentWord: "苹果",
-  currentWord: "苹果",
   // category: "kids", // Removed
 
   // Lifecycle Management
-  status: "waiting", // Enum: 'waiting' | 'playing' | 'result'
-  timeLeft: 0, // Game timer (seconds)
-  round: 0, // Round counter
+  status: "waiting", // Enum: 'waiting' | 'playing'
 
   // History for Reconnection
   recording: [], // Array of drawing events
 
   // Refactor: Single Winner & Next Preview
-  nextDrawerId: null,
   roundWinnerId: null
 };
-
-// Timer reference
-let timerInterval = null;
-const ROUND_DURATION = 60; // seconds
 
 // --- Core Helper Functions ---
 
@@ -62,65 +54,23 @@ function broadcastState() {
 }
 
 /**
- * Start 60s countdown. Emits 'timerTick' every second.
- */
-function startTimer() {
-  if (timerInterval) clearInterval(timerInterval);
-
-  GAME_STATE.timeLeft = ROUND_DURATION;
-  GAME_STATE.status = "playing";
-
-  // Sync state so clients know game started
-  broadcastState();
-
-  timerInterval = setInterval(() => {
-    GAME_STATE.timeLeft--;
-
-    // Broadcast tick (Lightweight sync)
-    io.emit("timerTick", GAME_STATE.timeLeft);
-
-    // Auto-end round when time is up
-    if (GAME_STATE.timeLeft <= 0) {
-      endRound();
-    }
-  }, 1000);
-}
-
-/**
- * End current round, show results, stop timer.
- */
-function endRound() {
-  if (timerInterval) clearInterval(timerInterval);
-
-  GAME_STATE.status = "result";
-  GAME_STATE.timeLeft = 0;
-
-  broadcastState(); // Sync status change
-  io.emit("round_end"); // Trigger client effects
-}
-
-/**
- * Prepare next round: Rotate drawer, pick word, start timer.
- */
-/**
  * Reset game state to lobby (Grab Mode)
  */
 function resetToLobby() {
   GAME_STATE.status = "waiting";
   GAME_STATE.currentDrawerId = null;
   GAME_STATE.roundWinnerId = null;
-  GAME_STATE.timeLeft = 0;
-  if (timerInterval) clearInterval(timerInterval);
 
   broadcastState();
 }
 
 /**
- * Start a new round with specific drawer
+ * Start a new round with specific drawer (Manual Mode)
  */
 function startRound(drawerId) {
   // 1. Set Drawer
   GAME_STATE.currentDrawerId = drawerId;
+  GAME_STATE.status = "playing";
 
   // 2. Pick Word
   const list = WORD_LISTS["kids"];
@@ -131,9 +81,7 @@ function startRound(drawerId) {
   GAME_STATE.roundWinnerId = null;
   GAME_STATE.recording = [];
   io.emit("clear_canvas");
-
-  // 4. Start Timer
-  startTimer();
+  broadcastState();
 }
 
 // --- Socket Event Loop ---
@@ -240,13 +188,11 @@ io.on("connection", socket => {
     // 2. Set Winner
     GAME_STATE.roundWinnerId = winnerId;
 
-    // 3. End Round Immediately
+    // 3. Celebrate!
     broadcastState();
     io.emit("score_animate", { playerId: winnerId, amount: 10 });
 
-    // Short delay to let animation play before showing result?
-    // Or immediate. User asked for "Confirm -> End".
-    endRound();
+    // Game CONTINUES. Drawer must manually click "Next Question" or "Exit"
   });
 
   // -- Cleanup --
@@ -260,10 +206,8 @@ io.on("connection", socket => {
 
       // Eliminate timer if game empty
       if (GAME_STATE.players.length === 0) {
-        if (timerInterval) clearInterval(timerInterval);
         GAME_STATE.status = "waiting";
         GAME_STATE.round = 0;
-        GAME_STATE.timeLeft = 0;
       } else {
         // Force reset to lobby if drawer leaves
         resetToLobby();
