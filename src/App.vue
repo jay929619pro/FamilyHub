@@ -10,7 +10,7 @@ import GameBoard from "./components/GameBoard.vue";
 // === State Management ===
 const gameStore = useGameStore();
 const { players, currentDrawerId, currentWord, scores, status, timeLeft, category } = storeToRefs(gameStore);
-const { connect } = useSocket();
+const { connect, socketId } = useSocket(); // Use reactive socketId
 const socket = connect();
 
 // === Local State ===
@@ -37,7 +37,11 @@ const categories = [
 
 // === Computed ===
 
-const isDrawer = computed(() => socket?.id && currentDrawerId.value === socket.id);
+const isDrawer = computed(() => {
+  // Debug log to trace why drawer is missing
+  // console.log(`Check Drawer: MySocket=${socketId.value}, CurrentDrawer=${currentDrawerId.value}`);
+  return socketId.value && currentDrawerId.value === socketId.value;
+});
 
 // Pinyin Generation
 const wordWithPinyin = computed(() => {
@@ -325,7 +329,7 @@ onMounted(() => {
             <div class="text-[10px] text-gray-400">{{ p.name }}</div>
             <div class="font-bold text-amber-600 font-mono">{{ scores[p.name] || 0 }}</div>
           </div>
-          <div v-if="isDrawer && p.id !== socket.id" class="absolute -top-5 w-full flex justify-center transform scale-90">
+          <div v-if="isDrawer && p.id !== socketId" class="absolute -top-5 w-full flex justify-center transform scale-90">
             <var-button round color="#ff9f43" text-color="#fff" size="mini" elevation="2" @click="addScore(p.id)">+10</var-button>
           </div>
         </div>
