@@ -229,32 +229,10 @@ onMounted(() => {
 <template>
   <div class="h-screen w-screen flex flex-col bg-amber-50 overflow-hidden select-none">
     <!-- 1. Header -->
-    <header class="h-16 flex items-center justify-between px-4 bg-white shadow-sm z-10 shrink-0">
-      <div class="flex items-center gap-2">
-        <!-- Settings Button Removed -->
-
-        <div class="flex flex-col justify-center ml-2">
-          <template v-if="isDrawer">
-            <div class="flex items-end gap-1">
-              <div v-for="(item, index) in wordWithPinyin" :key="index" class="flex flex-col items-center">
-                <span class="text-xs text-gray-400 font-mono">{{ item.py }}</span>
-                <span class="text-xl font-bold text-gray-800 tracking-wide leading-none">{{ item.char }}</span>
-              </div>
-              <div class="flex items-center gap-2 ml-2 mb-0.5">
-                <var-button round size="mini" type="warning" @click="changeWord">换一题</var-button>
-                <var-button round size="mini" color="#9ca3af" text-color="#fff" @click="giveUpDrawer">我不画了</var-button>
-              </div>
-            </div>
-          </template>
-          <template v-else>
-            <span class="text-lg text-gray-500 font-medium tracking-wide">
-              {{ currentDrawerId ? "猜猜他在画什么?" : "等待游戏开始" }}
-            </span>
-          </template>
-        </div>
-      </div>
-
-      <div class="flex items-center gap-3">
+    <!-- 1. Header -->
+    <header class="h-16 grid grid-cols-3 items-center px-4 bg-white shadow-sm z-10 shrink-0 relative">
+      <!-- Left: Game Info -->
+      <div class="flex items-center gap-3 justify-start">
         <div
           v-if="status === 'playing'"
           class="font-mono text-xl font-bold flex items-center gap-1 transition-colors"
@@ -264,9 +242,39 @@ onMounted(() => {
           {{ timeLeft }}s
         </div>
 
-        <var-chip :type="isDrawer ? 'primary' : 'default'" size="small">
-          {{ isDrawer ? "你是画家 🖌️" : "猜题中 👀" }}
+        <var-chip :type="isDrawer ? 'primary' : 'default'" size="small" :plain="!isDrawer">
+          {{ isDrawer ? "画家" : "猜题" }}
         </var-chip>
+      </div>
+
+      <!-- Center: Word Display -->
+      <div class="flex flex-col items-center justify-center">
+        <template v-if="isDrawer">
+          <div class="flex items-end gap-1">
+            <div v-for="(item, index) in wordWithPinyin" :key="index" class="flex flex-col items-center">
+              <span class="text-xs text-gray-400 font-mono">{{ item.py }}</span>
+              <span class="text-2xl font-bold text-gray-800 tracking-wide leading-none">{{ item.char }}</span>
+            </div>
+          </div>
+        </template>
+        <template v-else>
+          <div class="text-gray-400 text-sm font-medium tracking-widest flex items-center gap-1">
+            <span v-if="currentDrawerId" class="animate-pulse">正在作画...</span>
+            <span v-else>等待开始</span>
+          </div>
+        </template>
+      </div>
+
+      <!-- Right: Actions (Drawer Only) -->
+      <div class="flex items-center gap-2 justify-end">
+        <template v-if="isDrawer">
+          <var-button round text size="small" text-color="#9ca3af" @click="giveUpDrawer">
+            <var-icon name="close" size="16" class="mr-1" />不画了
+          </var-button>
+          <var-button round size="small" type="warning" class="shadow-md" @click="changeWord">
+            <var-icon name="refresh" size="16" class="mr-1" />换一题
+          </var-button>
+        </template>
       </div>
     </header>
 
