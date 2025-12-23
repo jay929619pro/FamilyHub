@@ -80,6 +80,9 @@ function startRound(drawerId) {
   // 3. Reset Round State
   GAME_STATE.roundWinnerId = null;
   GAME_STATE.recording = [];
+  // Reset scores for new round/drawer
+  GAME_STATE.players.forEach(p => (GAME_STATE.scores[p.name] = 0));
+
   io.emit("clear_canvas");
   broadcastState();
 }

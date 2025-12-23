@@ -54,8 +54,20 @@ const wordWithPinyin = computed(() => {
   }));
 });
 
+const maxScore = computed(() => {
+  if (!players.value.length) return 0;
+  const vals = players.value.map(p => scores.value[p.name] || 0);
+  return Math.max(0, ...vals);
+});
+
 const sortedPlayers = computed(() => {
-  return [...players.value].sort((a, b) => (scores.value[b.name] || 0) - (scores.value[a.name] || 0));
+  return [...players.value].sort((a, b) => {
+    // 1. Drawer First
+    if (a.id === currentDrawerId.value) return -1;
+    if (b.id === currentDrawerId.value) return 1;
+    // 2. Score Descending
+    return (scores.value[b.name] || 0) - (scores.value[a.name] || 0);
+  });
 });
 
 // Actions
@@ -137,7 +149,7 @@ function speak(text) {
   window.speechSynthesis.speak(utterance);
 }
 
-watch(status, (newVal, oldVal) => {
+/* watch(status, (newVal, oldVal) => {
   if (newVal === "playing" && oldVal !== "playing") {
     if (isDrawer.value) speak(`你要画的是：${currentWord.value}`);
   }
@@ -145,7 +157,7 @@ watch(status, (newVal, oldVal) => {
 
 watch(isDrawer, newVal => {
   if (newVal && status.value === "playing") speak(`你要画的是：${currentWord.value}`);
-});
+}); */
 
 // Lifecycle
 onMounted(() => {
@@ -184,7 +196,7 @@ onMounted(() => {
       <template #left>
         <var-chip :type="isDrawer ? 'primary' : 'default'" size="mini" class="font-bold shadow-sm transition-all duration-300">
           <template #left>
-            <var-icon :name="isDrawer ? 'palette' : 'eye-outline'" size="16" class="mr-1" />
+            <var-icon :name="isDrawer ? 'palette' : 'view-outline'" size="16" class="mr-1" />
           </template>
           {{ isDrawer ? "我是画家" : "我是猜手" }}
         </var-chip>
@@ -398,8 +410,10 @@ onMounted(() => {
                 >
                   {{ p.name }}
                 </span>
-                <!-- Crown -->
-                <var-icon v-if="sortedPlayers.indexOf(p) === 0 && scores[p.name] > 0" name="crown" size="8" color="#f59e0b" />
+                <!-- Drawer Mark -->
+                <var-icon v-if="p.id === currentDrawerId" name="palette" size="14" color="#f97316" class="ml-0.5 animate-pulse" />
+                <!-- Crown (Top Score) -->
+                <var-icon v-if="scores[p.name] > 0 && scores[p.name] === maxScore" name="crown" size="8" color="#f59e0b" class="ml-0.5" />
               </div>
 
               <div class="flex items-center mt-0.5 transition-transform duration-200" :class="{ 'scale-110': scoreEffects[p.id] }">
