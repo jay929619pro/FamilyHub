@@ -61,13 +61,12 @@ const maxScore = computed(() => {
 });
 
 const sortedPlayers = computed(() => {
-  return [...players.value].sort((a, b) => {
-    // 1. Drawer First
-    if (a.id === currentDrawerId.value) return -1;
-    if (b.id === currentDrawerId.value) return 1;
-    // 2. Score Descending
-    return (scores.value[b.name] || 0) - (scores.value[a.name] || 0);
-  });
+  return [...players.value]
+    .filter(p => p.id !== currentDrawerId.value)
+    .sort((a, b) => {
+      // Score Descending
+      return (scores.value[b.name] || 0) - (scores.value[a.name] || 0);
+    });
 });
 
 // Actions
@@ -273,7 +272,7 @@ onMounted(() => {
         ref="gameBoardRef"
         :is-drawer="isDrawer"
         :disabled="status !== 'playing'"
-        :stroke-color="currentTool === 'eraser' ? '#ffffff' : currentColor"
+        :stroke-color="currentTool === 'eraser' ? '#fffcef' : currentColor"
         :stroke-width="currentTool === 'eraser' ? 60 : 6"
       />
 
@@ -452,9 +451,8 @@ onMounted(() => {
                   empty-icon="star-outline"
                   color="#fbbf24"
                   empty-color="#e2e8f0"
-                  :size="14"
+                  :size="18"
                   class="transition-transform duration-200"
-                  :class="{ 'scale-125': scoreEffects[p.id] }"
                 />
               </div>
             </div>
