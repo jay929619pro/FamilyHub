@@ -387,7 +387,11 @@ onMounted(() => {
             v-for="p in sortedPlayers"
             :key="p.id"
             class="flex items-center rounded-full border p-0.5 pr-2 mr-2 transition-all duration-300 cursor-pointer select-none active:scale-95 shrink-0 bg-gray-50 border-gray-200"
-            :class="[p.id === currentDrawerId ? 'bg-amber-50 border-orange-200 ring-1 ring-orange-200' : 'hover:bg-white hover:shadow-sm']"
+            :class="[
+              p.id === currentDrawerId
+                ? 'bg-orange-50/80 border-orange-200 ring-2 ring-orange-100 ring-offset-1 pr-3 shadow-md'
+                : 'bg-gray-50 border-gray-200 hover:bg-white hover:shadow-sm pr-2'
+            ]"
             @click="handleAvatarClick(p)"
           >
             <!-- Avatar (Small) -->
@@ -403,20 +407,22 @@ onMounted(() => {
 
             <!-- Info Block (Compact) -->
             <div class="ml-1.5 flex flex-col justify-center min-w-[3em]">
-              <div class="flex items-center gap-0.5">
-                <span
-                  class="text-[10px] font-bold truncate max-w-[4.5em] leading-none"
-                  :class="p.id === currentDrawerId ? 'text-gray-900' : 'text-gray-600'"
-                >
+              <!-- Name & Crown (Hidden for Drawer) -->
+              <div v-if="p.id !== currentDrawerId" class="flex items-center gap-0.5">
+                <span class="text-[10px] font-bold truncate max-w-[4.5em] leading-none text-gray-600">
                   {{ p.name }}
                 </span>
-                <!-- Drawer Mark -->
-                <var-icon v-if="p.id === currentDrawerId" name="palette" size="14" color="#f97316" class="ml-0.5 animate-pulse" />
-                <!-- Crown (Top Score) -->
+
                 <var-icon v-if="scores[p.name] > 0 && scores[p.name] === maxScore" name="crown" size="8" color="#f59e0b" class="ml-0.5" />
               </div>
 
-              <div class="flex items-center mt-0.5 transition-transform duration-200" :class="{ 'scale-110': scoreEffects[p.id] }">
+              <!-- Drawer Status (Sole Content for Drawer) -->
+              <div v-if="p.id === currentDrawerId" class="flex items-center flex-col h-full">
+                <span class="text-[11px] font-black text-orange-500 tracking-widest">正在作画</span>
+              </div>
+
+              <!-- Score (For others) -->
+              <div v-else class="flex items-center mt-0.5 transition-transform duration-200" :class="{ 'scale-110': scoreEffects[p.id] }">
                 <var-icon
                   :name="scoreEffects[p.id] ? 'fire' : 'star'"
                   size="10"
