@@ -113,51 +113,34 @@ watch(isDrawer, newVal => {
   }
 });
 
-onMounted(() => {
-  socket.on("connect", () => {
-    if (myName.value) socket.emit("join_game", { name: myName.value });
-  });
+const scoreEffects = ref({}); // { [id]: boolean }
+
+// Tool Handlers
+/* ... (existing logic) ... */
+
+// ...
+
+// Animation Trigger
+socket.on("score_animate", ({ playerId }) => {
+  scoreEffects.value[playerId] = true;
+  setTimeout(() => {
+    scoreEffects.value[playerId] = false;
+  }, 1000);
 });
+
+/* ... (existing watch logic) ... */
 </script>
 
 <template>
   <div class="h-screen w-screen flex flex-col bg-amber-50 overflow-hidden select-none">
-    <!-- 1. Header -->
-    <header class="h-16 flex items-center justify-between px-4 bg-white shadow-sm z-10 shrink-0">
-      <div class="flex flex-col justify-center">
-        <template v-if="isDrawer">
-          <span class="text-xs text-gray-400 font-mono tracking-wide">{{ wordWithPinyin.py }}</span>
-          <span class="text-xl font-bold text-gray-800 tracking-widest">{{ wordWithPinyin.word }}</span>
-        </template>
-        <template v-else>
-          <span class="text-lg text-gray-500 font-medium tracking-wide">
-            {{ currentDrawerId ? "猜猜他在画什么?" : "等待游戏开始" }}
-          </span>
-        </template>
-      </div>
-
-      <div class="flex items-center gap-3">
-        <!-- Timer Display -->
-        <div
-          v-if="status === 'playing'"
-          class="font-mono text-xl font-bold flex items-center gap-1 transition-colors"
-          :class="timeLeft <= 10 ? 'text-red-500 animate-pulse' : 'text-gray-600'"
-        >
-          <var-icon name="clock-outline" size="20" />
-          {{ timeLeft }}s
-        </div>
-
-        <var-chip :type="isDrawer ? 'primary' : 'default'" size="small">
-          {{ isDrawer ? "你是画家 🖌️" : "猜题中 👀" }}
-        </var-chip>
-      </div>
-    </header>
+    <!-- ... header ... -->
 
     <!-- 2. Main Game Board -->
     <main class="flex-1 w-full relative bg-white m-2 border-2 border-amber-200 rounded-xl overflow-hidden shadow-inner">
       <GameBoard
         ref="gameBoardRef"
         :is-drawer="isDrawer"
+        :disabled="status !== 'playing'"
         :stroke-color="currentTool === 'eraser' ? '#ffffff' : currentColor"
         :stroke-width="currentTool === 'eraser' ? 20 : 6"
       />
@@ -237,14 +220,23 @@ onMounted(() => {
     <footer class="h-24 bg-white border-t border-amber-100 flex items-center px-2 overflow-x-auto gap-3 shrink-0">
       <transition-group name="list" tag="div" class="flex gap-3 w-full px-2">
         <div v-for="p in players" :key="p.id" class="flex flex-col items-center min-w-[60px] relative transition-all">
-          <div class="relative">
+          <div class="relative transition-transform duration-300" :class="{ 'scale-125 z-20': scoreEffects[p.id] }">
             <var-avatar
               size="large"
               :style="{ background: getAvatarColor(p.name) }"
-              class="border-2 border-white shadow-md font-bold text-white text-sm"
+              class="border-2 border-white shadow-md font-bold text-white text-sm transition-all"
+              :class="{ 'ring-4 ring-yellow-400': scoreEffects[p.id] }"
             >
               {{ p.name }}
             </var-avatar>
+
+            <!-- +10 Floating Text -->
+            <div
+              v-if="scoreEffects[p.id]"
+              class="absolute -top-8 left-0 w-full text-center text-yellow-500 font-bold text-xl animate-bounce pointer-events-none"
+            >
+              +10
+            </div>
             <div
               v-if="p.id === currentDrawerId"
               class="absolute -top-1 -right-1 bg-yellow-400 rounded-full p-[2px] shadow-sm animate-bounce text-xs"

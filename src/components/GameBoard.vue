@@ -20,6 +20,11 @@ const props = defineProps({
   strokeWidth: {
     type: Number,
     default: 5
+  },
+  // 是否禁用画板 (如非游戏时间)
+  disabled: {
+    type: Boolean,
+    default: false
   }
 });
 
@@ -105,7 +110,7 @@ function initCanvas() {
 
 // 本地落笔 (仅画手触发)
 function startDrawing(e) {
-  if (!props.isDrawer) return;
+  if (!props.isDrawer || props.disabled) return;
   isDrawing = true;
 
   // 兼容 Touch 和 Mouse
@@ -121,7 +126,7 @@ function startDrawing(e) {
 
 // 本地移动 (仅画手触发)
 function draw(e) {
-  if (!isDrawing || !props.isDrawer) return;
+  if (!isDrawing || !props.isDrawer || props.disabled) return;
   e.preventDefault(); // 只有在画画时才阻止默认滚动
 
   const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -201,17 +206,17 @@ defineExpose({
   clearCanvas
 });
 
-import { useResizeObserver } from '@vueuse/core'
+import { useResizeObserver } from "@vueuse/core";
 
 /* ... 省略中间代码 ... */
 
 onMounted(() => {
   initCanvas();
   // 使用 VueUse 监听容器尺寸变化 (更精准，不仅限窗口)
-  useResizeObserver(containerRef, (entries) => {
+  useResizeObserver(containerRef, entries => {
     // 简单防抖或直接重绘
     initCanvas();
-  })
+  });
 
   // 监听远程绘画
   if (socket) {

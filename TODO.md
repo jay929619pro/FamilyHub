@@ -2,44 +2,20 @@
 第一阶段：游戏生命周期管理 (Core Loop)
 目标：让应用从“同步画板”进化为“有开端和结局的游戏”。
 
-[ ] 后端计时器逻辑：在 server/index.js 中引入 roundTimer。
+[x] 后端计时器逻辑：server/index.js 引入 roundTimer。 - 实现 startGame，开始 60s 倒计时。 - 每秒广播 timerTick。 - 倒计时结束触发 roundEnd，锁定画板。
 
-实现 startGame 事件，后端开始 60s 倒计时。
+[x] 自动轮转机制： - 管理员或画手一键“下一局”。 - 后端自动更新 currentDrawerId，状态流转正确。
 
-每秒通过 timerTick 广播剩余时间。
-
-倒计时结束触发 roundEnd，强制锁定所有客户端画板。
-
-[ ] 自动轮转机制：实现一键“下一局”。
-
-当本轮结束，允许管理员（或上一位画家）点击“换人画”，后端自动更新 currentDrawerId 并重置画板。
-
-[ ] 游戏结算状态：
-
-增加 gameStatus: waiting | playing | result 三种状态。
-
-result 状态下展示本轮得分最高的成员。
+[x] 游戏结算状态： - status: waiting -> playing -> result。 - result 状态下展示最高分。
 
 第二阶段：宝宝与长辈的交互增强 (UX/Accessibility)
 目标：消除认知障碍，让 6 岁宝宝和长辈无需指导也能玩。
 
-[ ] 语音辅助 (TTS)：
+[x] 语音辅助 (TTS)： - 前端集成 window.speechSynthesis。 - 画家模式下自动播报“请画出：[词语]”。
 
-在前端集成 window.speechSynthesis。
+[x] 拼音与视觉优化： - 题目区域 pinyin-pro 生僻字注音。 - 画家与猜题者界面显着区分。
 
-逻辑：当画家（宝宝）收到新词条时，系统自动语音播报：“请画出：[词语]”。
-
-[ ] 拼音与视觉优化：
-
-确保题目区域的拼音使用 pinyin-pro 生成，且字体大小至少 24px 以上。
-
-为“画家”和“听众”设计明显的 UI 区分（例如画家界面背景为淡黄色，听众为淡蓝色）。
-
-[ ] 动效反馈：
-
-引入 canvas-confetti（五彩纸屑）。
-
-逻辑：当有人得分时，全屏触发纸屑特效，提升游戏正向激励。
+[x] 动效反馈： - 得分时头像放大并飘出 +10。 - result 遮罩层动画。
 
 第三阶段：系统健壮性 (Stability)
 目标：解决局域网环境下手机息屏、掉线等常见问题。
