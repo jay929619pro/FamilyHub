@@ -9,7 +9,7 @@ import GameBoard from "./components/GameBoard.vue";
 
 // === State Management ===
 const gameStore = useGameStore();
-const { players, currentDrawerId, currentWord, scores, status, timeLeft, category, roundWinnerId, nextDrawerId } = storeToRefs(gameStore);
+const { players, currentDrawerId, currentWord, scores, status, timeLeft, roundWinnerId, nextDrawerId } = storeToRefs(gameStore);
 const { connect, socketId } = useSocket(); // Use reactive socketId
 const socket = connect();
 
@@ -27,15 +27,13 @@ const palette = ["#333333", "#ef4444", "#3b82f6", "#22c55e", "#f59e0b"];
 // Animation State
 const scoreEffects = ref({}); // { [playerId]: boolean }
 
-// Settings State
-const showSettings = ref(false);
-const categories = [
-  { key: "kids", label: "宝宝模式 (简单)" },
-  { key: "family", label: "家庭模式 (生活)" },
-  { key: "pro", label: "成语模式 (困难)" }
-];
+// Settings State - Removed
+// const showSettings = ref(false);
+// const categories = ...
 
-// === Computed ===
+// ... existing code ...
+
+// function setCategory(cat) { ... } // Removed
 
 const isDrawer = computed(() => {
   // Debug log to trace why drawer is missing
@@ -43,11 +41,13 @@ const isDrawer = computed(() => {
   return socketId.value && currentDrawerId.value === socketId.value;
 });
 
-// Pinyin Generation
 const wordWithPinyin = computed(() => {
-  if (!currentWord.value) return { word: "...", py: "" };
-  const py = pinyin(currentWord.value, { type: "string", toneType: "symbol" });
-  return { word: currentWord.value, py };
+  if (!currentWord.value) return [];
+  const chars = currentWord.value.split("");
+  return chars.map(char => ({
+    char,
+    py: pinyin(char, { type: "string", toneType: "symbol" })
+  }));
 });
 
 // Avatar Colors
@@ -77,12 +77,6 @@ function selectRole(role) {
 
 function requestNewRound() {
   socket.emit("next_round");
-}
-
-function setCategory(cat) {
-  socket.emit("set_category", cat);
-  Snackbar.success(`已切换题库: ${categories.find(c => c.key === cat).label}`);
-  showSettings.value = false;
 }
 
 // ... existing code ...
@@ -221,15 +215,19 @@ onMounted(() => {
     <!-- 1. Header -->
     <header class="h-16 flex items-center justify-between px-4 bg-white shadow-sm z-10 shrink-0">
       <div class="flex items-center gap-2">
-        <!-- Settings Button -->
-        <var-button round text @click="showSettings = true">
-          <var-icon name="cog-outline" size="24" class="text-gray-600" />
-        </var-button>
+        <!-- Settings Button Removed -->
 
         <div class="flex flex-col justify-center ml-2">
           <template v-if="isDrawer">
-            <span class="text-xs text-gray-400 font-mono tracking-wide">{{ wordWithPinyin.py }}</span>
-            <span class="text-xl font-bold text-gray-800 tracking-widest">{{ wordWithPinyin.word }}</span>
+            <div class="flex items-end gap-1">
+              <div v-for="(item, index) in wordWithPinyin" :key="index" class="flex flex-col items-center">
+                <span class="text-xs text-gray-400 font-mono">{{ item.py }}</span>
+                <span class="text-xl font-bold text-gray-800 tracking-wide leading-none">{{ item.char }}</span>
+              </div>
+              <div class="ml-2 mb-0.5">
+                <var-button round size="mini" type="warning" @click="requestNewRound">换一题</var-button>
+              </div>
+            </div>
           </template>
           <template v-else>
             <span class="text-lg text-gray-500 font-medium tracking-wide">
@@ -267,11 +265,6 @@ onMounted(() => {
 
       <!-- Drawer Toolbar -->
       <template v-if="isDrawer">
-        <!-- Next Round Button -->
-        <div class="absolute top-2 left-2 opacity-80 z-20">
-          <var-button round size="mini" type="warning" @click="requestNewRound">换一题</var-button>
-        </div>
-
         <!-- Drawing Tools -->
         <div class="absolute bottom-4 left-0 w-full flex justify-center items-center gap-3 z-20 pointer-events-none">
           <div
@@ -399,31 +392,7 @@ onMounted(() => {
       </div>
     </var-popup>
 
-    <!-- Settings Popup -->
-    <var-popup :show="showSettings" position="bottom" class="rounded-t-xl" @click-overlay="showSettings = false">
-      <div class="p-6 bg-white">
-        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">游戏设置</h3>
-        <div class="space-y-4">
-          <div>
-            <div class="text-sm text-gray-500 mb-2">选择题库类别</div>
-            <div class="grid grid-cols-1 gap-3">
-              <var-button
-                v-for="cat in categories"
-                :key="cat.key"
-                block
-                :type="category === cat.key ? 'primary' : 'default'"
-                @click="setCategory(cat.key)"
-              >
-                {{ cat.label }}
-              </var-button>
-            </div>
-          </div>
-        </div>
-        <div class="mt-6">
-          <var-button block text @click="showSettings = false">关闭</var-button>
-        </div>
-      </div>
-    </var-popup>
+    <!-- Settings Popup Removed -->
   </div>
 </template>
 

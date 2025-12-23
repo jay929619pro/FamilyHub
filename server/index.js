@@ -33,7 +33,8 @@ const GAME_STATE = {
   scores: {}, // { [name]: number }
   currentDrawerId: null,
   currentWord: "苹果",
-  category: "kids", // 'kids' | 'family' | 'pro'
+  currentWord: "苹果",
+  // category: "kids", // Removed
 
   // Lifecycle Management
   status: "waiting", // Enum: 'waiting' | 'playing' | 'result'
@@ -111,7 +112,7 @@ function endRound() {
  */
 function nextRound() {
   // 1. Pick new word based on category
-  const list = WORD_LISTS[GAME_STATE.category] || WORD_LISTS["kids"];
+  const list = WORD_LISTS["kids"];
   const idx = Math.floor(Math.random() * list.length);
   GAME_STATE.currentWord = list[idx];
 
@@ -181,13 +182,6 @@ io.on("connection", socket => {
   });
 
   // -- Game Flow Control --
-  socket.on("set_category", category => {
-    if (WORD_LISTS[category]) {
-      GAME_STATE.category = category;
-      broadcastState();
-    }
-  });
-
   socket.on("next_round", () => {
     // Auth: Only drawer or new game starter can trigger
     // Also allow ANYONE to start if game is 'waiting' (lobby mode)
