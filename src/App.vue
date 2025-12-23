@@ -9,7 +9,7 @@ import GameBoard from "./components/GameBoard.vue";
 
 // === State Management ===
 const gameStore = useGameStore();
-const { players, currentDrawerId, currentWord, scores, status, timeLeft } = storeToRefs(gameStore);
+const { players, currentDrawerId, currentWord, scores, status, timeLeft, category } = storeToRefs(gameStore);
 const { connect } = useSocket();
 const socket = connect();
 
@@ -26,6 +26,14 @@ const palette = ["#333333", "#ef4444", "#3b82f6", "#22c55e", "#f59e0b"];
 
 // Animation State
 const scoreEffects = ref({}); // { [playerId]: boolean }
+
+// Settings State
+const showSettings = ref(false);
+const categories = [
+  { key: "kids", label: "宝宝模式 (简单)" },
+  { key: "family", label: "家庭模式 (生活)" },
+  { key: "pro", label: "成语模式 (困难)" }
+];
 
 // === Computed ===
 
@@ -50,7 +58,6 @@ const getAvatarColor = name => roleColors[name] || "#ccc";
 // Highest Score Player (for Result Screen)
 const topPlayer = computed(() => {
   if (players.value.length === 0) return null;
-  // Simple sort descending
   return [...players.value].sort((a, b) => (scores.value[b.id] || 0) - (scores.value[a.id] || 0))[0];
 });
 
@@ -66,6 +73,17 @@ function selectRole(role) {
 
 function requestNewRound() {
   socket.emit("next_round");
+}
+
+function setCategory(cat) {
+  socket.emit("set_category", cat);
+  Snackbar.success(`已切换题库: ${categories.find(c => c.key === cat).label}`);
+  showSettings.value = false;
+}
+
+function saveImage() {
+  gameBoardRef.value?.saveImage();
+  Snackbar.success("正在保存画作...");
 }
 
 function addScore(playerId) {
@@ -91,28 +109,22 @@ function confirmClear() {
 // TTS Voice Service
 function speak(text) {
   if (!("speechSynthesis" in window)) return;
-  // Prevent stacking
   window.speechSynthesis.cancel();
-
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = "zh-CN";
   utterance.rate = 0.9;
   window.speechSynthesis.speak(utterance);
 }
 
-// Watch Game Status to trigger Effects
+// Watch Game Status
 watch(status, (newVal, oldVal) => {
   if (newVal === "playing" && oldVal !== "playing") {
-    // Round Start: Speak word if drawer
     if (isDrawer.value) {
       speak(`你要画的是：${currentWord.value}`);
     }
-  } else if (newVal === "result") {
-    // Round End
   }
 });
 
-// Watch Drawer assignment (late join / reassign)
 watch(isDrawer, newVal => {
   if (newVal && status.value === "playing") {
     speak(`你要画的是：${currentWord.value}`);
@@ -123,13 +135,11 @@ watch(isDrawer, newVal => {
 
 onMounted(() => {
   socket.on("connect", () => {
-    // Auto-rejoin if we have a name
     if (myName.value) {
       socket.emit("join_game", { name: myName.value });
     }
   });
 
-  // Listen for score animation
   socket.on("score_animate", ({ playerId }) => {
     scoreEffects.value[playerId] = true;
     setTimeout(() => {
@@ -137,12 +147,11 @@ onMounted(() => {
     }, 1000);
   });
 
-  // Reconnection Sync
   socket.on("sync_history", history => {
     gameBoardRef.value?.replayHistory(history);
   });
 
-  // Prevent Screen Sleep (Wake Lock)
+  // Wake Lock
   let wakeLock = null;
   const requestWakeLock = async () => {
     if ("wakeLock" in navigator) {
@@ -153,13 +162,9 @@ onMounted(() => {
       }
     }
   };
-
-  // Request initially and on visibility change
   requestWakeLock();
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") {
-      requestWakeLock();
-    }
+    if (document.visibilityState === "visible") requestWakeLock();
   });
 });
 </script>
@@ -168,20 +173,26 @@ onMounted(() => {
   <div class="h-screen w-screen flex flex-col bg-amber-50 overflow-hidden select-none">
     <!-- 1. Header -->
     <header class="h-16 flex items-center justify-between px-4 bg-white shadow-sm z-10 shrink-0">
-      <div class="flex flex-col justify-center">
-        <template v-if="isDrawer">
-          <span class="text-xs text-gray-400 font-mono tracking-wide">{{ wordWithPinyin.py }}</span>
-          <span class="text-xl font-bold text-gray-800 tracking-widest">{{ wordWithPinyin.word }}</span>
-        </template>
-        <template v-else>
-          <span class="text-lg text-gray-500 font-medium tracking-wide">
-            {{ currentDrawerId ? "猜猜他在画什么?" : "等待游戏开始" }}
-          </span>
-        </template>
+      <div class="flex items-center gap-2">
+        <!-- Settings Button -->
+        <var-button round text @click="showSettings = true">
+          <var-icon name="cog-outline" size="24" class="text-gray-600" />
+        </var-button>
+
+        <div class="flex flex-col justify-center ml-2">
+          <template v-if="isDrawer">
+            <span class="text-xs text-gray-400 font-mono tracking-wide">{{ wordWithPinyin.py }}</span>
+            <span class="text-xl font-bold text-gray-800 tracking-widest">{{ wordWithPinyin.word }}</span>
+          </template>
+          <template v-else>
+            <span class="text-lg text-gray-500 font-medium tracking-wide">
+              {{ currentDrawerId ? "猜猜他在画什么?" : "等待游戏开始" }}
+            </span>
+          </template>
+        </div>
       </div>
 
       <div class="flex items-center gap-3">
-        <!-- Timer Display -->
         <div
           v-if="status === 'playing'"
           class="font-mono text-xl font-bold flex items-center gap-1 transition-colors"
@@ -209,17 +220,16 @@ onMounted(() => {
 
       <!-- Drawer Toolbar -->
       <template v-if="isDrawer">
-        <!-- Next Round Button (Floating) -->
+        <!-- Next Round Button -->
         <div class="absolute top-2 left-2 opacity-80 z-20">
           <var-button round size="mini" type="warning" @click="requestNewRound">换一题</var-button>
         </div>
 
-        <!-- Drawing Tools (Bottom Floating) -->
+        <!-- Drawing Tools -->
         <div class="absolute bottom-4 left-0 w-full flex justify-center items-center gap-3 z-20 pointer-events-none">
           <div
             class="bg-white/95 backdrop-blur rounded-full shadow-lg p-2 flex items-center gap-3 pointer-events-auto border border-amber-100"
           >
-            <!-- Palette -->
             <div
               v-for="color in palette"
               :key="color"
@@ -229,7 +239,6 @@ onMounted(() => {
               @click="selectColor(color)"
             ></div>
             <div class="w-px h-6 bg-gray-200 mx-1"></div>
-            <!-- Actions -->
             <var-button round size="small" :type="currentTool === 'eraser' ? 'primary' : 'default'" @click="toggleEraser">
               <var-icon name="eraser" size="16" />
             </var-button>
@@ -241,9 +250,8 @@ onMounted(() => {
       </template>
     </main>
 
-    <!-- 3. Overlays (Z-Index 30) -->
-
-    <!-- Waiting Overlay -->
+    <!-- 3. Overlays -->
+    <!-- Waiting -->
     <div
       v-if="status === 'waiting'"
       class="absolute inset-0 top-16 bottom-24 bg-white/95 z-30 flex flex-col items-center justify-center backdrop-blur-sm"
@@ -251,13 +259,12 @@ onMounted(() => {
       <div class="text-6xl mb-6 animate-bounce">🎨</div>
       <h2 class="text-2xl font-bold text-gray-700 mb-2">家庭画画猜谜</h2>
       <p class="text-gray-500 mb-8">当前在线: {{ players.length }} 人</p>
-
       <var-button v-if="players.length > 0" type="primary" size="large" class="w-48 shadow-xl text-lg font-bold" @click="requestNewRound">
         开始游戏
       </var-button>
     </div>
 
-    <!-- Result Overlay -->
+    <!-- Result -->
     <div
       v-if="status === 'result'"
       class="absolute inset-0 top-16 bottom-24 bg-black/80 z-30 flex flex-col items-center justify-center text-white backdrop-blur-md"
@@ -270,21 +277,25 @@ onMounted(() => {
         <p class="text-4xl font-bold text-yellow-400 tracking-[0.2em]">{{ currentWord }}</p>
       </div>
 
-      <!-- Winner Spotlight -->
       <div v-if="topPlayer" class="flex gap-2 items-center bg-white/10 px-4 py-2 rounded-lg mb-8">
         <span class="text-xs text-gray-300">目前领先:</span>
         <var-avatar size="small" :style="{ background: getAvatarColor(topPlayer.name) }">{{ topPlayer.name }}</var-avatar>
         <span class="font-bold text-yellow-400">{{ scores[topPlayer.id] || 0 }}分</span>
       </div>
 
-      <!-- STRICT PERMISSION: Only drawer can start next round -->
-      <var-button v-if="isDrawer" type="warning" size="large" class="w-48 shadow-2xl text-lg font-bold" @click="requestNewRound">
-        下一局 ➡️
-      </var-button>
-      <div v-else class="text-sm opacity-75 animate-pulse">等待画家开启下一轮...</div>
+      <div class="flex flex-col gap-4 w-48">
+        <var-button block type="success" size="large" class="shadow-xl font-bold" @click="saveImage">
+          <var-icon name="image-outline" class="mr-2" /> 保存画作
+        </var-button>
+
+        <var-button v-if="isDrawer" type="warning" size="large" class="shadow-2xl text-lg font-bold" @click="requestNewRound">
+          下一局 ➡️
+        </var-button>
+        <div v-else class="text-center text-sm opacity-75 animate-pulse">等待画家开启下一轮...</div>
+      </div>
     </div>
 
-    <!-- 4. Footer (Players) -->
+    <!-- 4. Footer -->
     <footer class="h-24 bg-white border-t border-amber-100 flex items-center px-2 overflow-x-auto gap-3 shrink-0">
       <transition-group name="list" tag="div" class="flex gap-3 w-full px-2">
         <div v-for="p in players" :key="p.id" class="flex flex-col items-center min-w-[60px] relative transition-all">
@@ -297,7 +308,6 @@ onMounted(() => {
             >
               {{ p.name }}
             </var-avatar>
-            <!-- +10 Floating Text -->
             <div
               v-if="scoreEffects[p.id]"
               class="absolute -top-8 left-0 w-full text-center text-yellow-500 font-bold text-xl animate-bounce pointer-events-none"
@@ -315,7 +325,6 @@ onMounted(() => {
             <div class="text-[10px] text-gray-400">{{ p.name }}</div>
             <div class="font-bold text-amber-600 font-mono">{{ scores[p.id] || 0 }}</div>
           </div>
-          <!-- Add Score Button -->
           <div v-if="isDrawer && p.id !== socket.id" class="absolute -top-5 w-full flex justify-center transform scale-90">
             <var-button round color="#ff9f43" text-color="#fff" size="mini" elevation="2" @click="addScore(p.id)">+10</var-button>
           </div>
@@ -340,6 +349,32 @@ onMounted(() => {
           >
             {{ role }}
           </var-button>
+        </div>
+      </div>
+    </var-popup>
+
+    <!-- Settings Popup -->
+    <var-popup :show="showSettings" position="bottom" class="rounded-t-xl" @click-overlay="showSettings = false">
+      <div class="p-6 bg-white">
+        <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">游戏设置</h3>
+        <div class="space-y-4">
+          <div>
+            <div class="text-sm text-gray-500 mb-2">选择题库类别</div>
+            <div class="grid grid-cols-1 gap-3">
+              <var-button
+                v-for="cat in categories"
+                :key="cat.key"
+                block
+                :type="category === cat.key ? 'primary' : 'default'"
+                @click="setCategory(cat.key)"
+              >
+                {{ cat.label }}
+              </var-button>
+            </div>
+          </div>
+        </div>
+        <div class="mt-6">
+          <var-button block text @click="showSettings = false">关闭</var-button>
         </div>
       </div>
     </var-popup>

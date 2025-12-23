@@ -15,6 +15,7 @@ export const useGameStore = defineStore("game", () => {
 
   // 辅助状态
   const isGameStarted = ref(false); // Deprecated, use status instead
+  const category = ref("kids"); // 'kids' | 'family' | 'pro'
 
   /**
    * 统一处理服务端推送的全量/增量状态更新
@@ -32,6 +33,9 @@ export const useGameStore = defineStore("game", () => {
     if (payload.status) status.value = payload.status;
     if (payload.timeLeft !== undefined) timeLeft.value = payload.timeLeft;
     if (payload.round !== undefined) round.value = payload.round;
+
+    // Category update
+    if (payload.category) category.value = payload.category;
   }
 
   function updateTimer(seconds) {
@@ -47,6 +51,7 @@ export const useGameStore = defineStore("game", () => {
     status.value = "waiting";
     timeLeft.value = 0;
     round.value = 0;
+    category.value = "kids";
   }
 
   return {
@@ -59,6 +64,7 @@ export const useGameStore = defineStore("game", () => {
     round,
     updateState,
     updateTimer,
-    resetGame
+    resetGame,
+    category
   };
 });

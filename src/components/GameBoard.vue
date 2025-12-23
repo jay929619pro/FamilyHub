@@ -223,15 +223,31 @@ function handleResize() {
   // 2. 重置 Canvas 大小
   initCanvas();
 
-  // 3. 恢复画面 (注意: 只是简单恢复像素，如果宽窄变更大可能会有留白或裁剪)
-  // 如果追求完美，应该存逻辑路径并重绘。但也就是为了应付旋转屏幕。
+  // 3. 恢复画面
   ctx.putImageData(imageData, 0, 0);
+}
+
+// 保存图片
+function saveImage() {
+  if (!canvasRef.value) return;
+  try {
+    const dataURL = canvasRef.value.toDataURL("image/png");
+    const link = document.createElement("a");
+    link.download = `family-hub-painting-${Date.now()}.png`;
+    link.href = dataURL;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (e) {
+    console.error("Save failed:", e);
+  }
 }
 
 // 暴露给父组件调用
 defineExpose({
   clearCanvas,
-  replayHistory
+  replayHistory,
+  saveImage
 });
 
 onMounted(() => {

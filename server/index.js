@@ -1,8 +1,16 @@
-const express = require("express");
-const { createServer } = require("http");
-const { Server } = require("socket.io");
-const path = require("path");
-const cors = require("cors");
+import express from "express";
+import { createServer } from "http";
+import { Server } from "socket.io";
+import path from "path";
+import cors from "cors";
+import { fileURLToPath } from "url";
+import { createRequire } from "module";
+
+// Fix __dirname for ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const require = createRequire(import.meta.url);
+const WORD_LISTS = require("./words.json");
 
 const app = express();
 const httpServer = createServer(app);
@@ -24,15 +32,16 @@ const GAME_STATE = {
   scores: {}, // { [socketId]: number }
   currentDrawerId: null,
   currentWord: "苹果",
+  category: "kids", // 'kids' | 'family' | 'pro'
 
   // Lifecycle Management
   status: "waiting", // Enum: 'waiting' | 'playing' | 'result'
   timeLeft: 0, // Game timer (seconds)
-  round: 0 // Round counter
-};
+  round: 0, // Round counter
 
-// Word Bank
-const WORD_LIST = ["苹果", "香蕉", "汽车", "房子", "小狗", "太阳", "月亮", "机器人", "西瓜", "电脑"];
+  // History for Reconnection
+  recording: [] // Array of drawing events
+};
 
 // Timer reference
 let timerInterval = null;
@@ -88,9 +97,10 @@ function endRound() {
  * Prepare next round: Rotate drawer, pick word, start timer.
  */
 function nextRound() {
-  // 1. Pick new word
-  const idx = Math.floor(Math.random() * WORD_LIST.length);
-  GAME_STATE.currentWord = WORD_LIST[idx];
+  // 1. Pick new word based on category
+  const list = WORD_LISTS[GAME_STATE.category] || WORD_LISTS["kids"];
+  const idx = Math.floor(Math.random() * list.length);
+  GAME_STATE.currentWord = list[idx];
 
   // 2. Rotate drawer (Round Robin)
   if (GAME_STATE.players.length > 0) {
@@ -145,6 +155,13 @@ io.on("connection", socket => {
   });
 
   // -- Game Flow Control --
+  socket.on("set_category", category => {
+    if (WORD_LISTS[category]) {
+      GAME_STATE.category = category;
+      broadcastState();
+    }
+  });
+
   socket.on("next_round", () => {
     // Auth: Only drawer or new game starter can trigger
     // Also allow ANYONE to start if game is 'waiting' (lobby mode)
@@ -174,6 +191,7 @@ io.on("connection", socket => {
 
   socket.on("clear_canvas", () => {
     if (socket.id === GAME_STATE.currentDrawerId) {
+      GAME_STATE.recording = [];
       socket.broadcast.emit("clear_canvas");
     }
   });
