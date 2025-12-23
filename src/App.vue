@@ -136,6 +136,31 @@ onMounted(() => {
       scoreEffects.value[playerId] = false;
     }, 1000);
   });
+
+  // Reconnection Sync
+  socket.on("sync_history", history => {
+    gameBoardRef.value?.replayHistory(history);
+  });
+
+  // Prevent Screen Sleep (Wake Lock)
+  let wakeLock = null;
+  const requestWakeLock = async () => {
+    if ("wakeLock" in navigator) {
+      try {
+        wakeLock = await navigator.wakeLock.request("screen");
+      } catch (err) {
+        console.error("Wake Lock error:", err);
+      }
+    }
+  };
+
+  // Request initially and on visibility change
+  requestWakeLock();
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      requestWakeLock();
+    }
+  });
 });
 </script>
 

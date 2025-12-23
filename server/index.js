@@ -107,6 +107,8 @@ function nextRound() {
   GAME_STATE.round++;
 
   // 4. Reset Canvas & Start
+  // Clear history and canvas
+  GAME_STATE.recording = [];
   io.emit("clear_canvas");
   startTimer();
 }
@@ -135,6 +137,11 @@ io.on("connection", socket => {
     }
 
     broadcastState();
+
+    // Sync History to the joining user ONLY
+    if (GAME_STATE.recording.length > 0) {
+      socket.emit("sync_history", GAME_STATE.recording);
+    }
   });
 
   // -- Game Flow Control --
@@ -150,9 +157,20 @@ io.on("connection", socket => {
   });
 
   // -- Drawing (High Frequency Relay) --
-  socket.on("draw", data => socket.broadcast.emit("draw", data));
-  socket.on("draw_start", data => socket.broadcast.emit("draw_start", data));
-  socket.on("draw_end", () => socket.broadcast.emit("draw_end"));
+  socket.on("draw", data => {
+    GAME_STATE.recording.push({ type: "draw", data });
+    socket.broadcast.emit("draw", data);
+  });
+
+  socket.on("draw_start", data => {
+    GAME_STATE.recording.push({ type: "draw_start", data });
+    socket.broadcast.emit("draw_start", data);
+  });
+
+  socket.on("draw_end", () => {
+    GAME_STATE.recording.push({ type: "draw_end" });
+    socket.broadcast.emit("draw_end");
+  });
 
   socket.on("clear_canvas", () => {
     if (socket.id === GAME_STATE.currentDrawerId) {

@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted, watch, nextTick } from "vue";
 import { useSocket } from "../composables/useSocket";
 import { useGameStore } from "../store/game";
 import { storeToRefs } from "pinia";
+import { useResizeObserver } from "@vueuse/core";
 
 // Props 定义
 const props = defineProps({
@@ -194,28 +195,50 @@ function handleRemoteDraw(data) {
   }
 }
 
+/**
+ * 重放历史轨迹 (用于断线重连或进房同步)
+ * @param {Array} history
+ */
+function replayHistory(history) {
+  if (!Array.isArray(history)) return;
+
+  // 批量绘制，建议用 requestAnimationFrame 分批或者直接同步(如果量不大)
+  // 这里直接同步绘制
+  history.forEach(item => {
+    if (item.type === "draw") {
+      handleRemoteDraw(item.data);
+    } else if (item.type === "clear_canvas") {
+      clearCanvas(false);
+    }
+  });
+}
+
 // ====== Resize 适配 ======
-// 当窗口大小改变时，为了不丢失画面，通常需要先把内容存下来再重绘
-// 简单起见，这里暂不保存画面，直接重置 (真实项目建议把历史笔画存个 ImageBuf 或 History Array)
 function handleResize() {
+  if (!ctx || !canvasRef.value) return;
+
+  // 1. 保存当前画面
+  const imageData = ctx.getImageData(0, 0, canvasRef.value.width, canvasRef.value.height);
+
+  // 2. 重置 Canvas 大小
   initCanvas();
+
+  // 3. 恢复画面 (注意: 只是简单恢复像素，如果宽窄变更大可能会有留白或裁剪)
+  // 如果追求完美，应该存逻辑路径并重绘。但也就是为了应付旋转屏幕。
+  ctx.putImageData(imageData, 0, 0);
 }
 
 // 暴露给父组件调用
 defineExpose({
-  clearCanvas
+  clearCanvas,
+  replayHistory
 });
-
-import { useResizeObserver } from "@vueuse/core";
-
-/* ... 省略中间代码 ... */
 
 onMounted(() => {
   initCanvas();
   // 使用 VueUse 监听容器尺寸变化 (更精准，不仅限窗口)
   useResizeObserver(containerRef, entries => {
-    // 简单防抖或直接重绘
-    initCanvas();
+    handleResize();
   });
 
   // 监听远程绘画
