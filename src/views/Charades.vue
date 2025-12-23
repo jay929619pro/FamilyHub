@@ -162,7 +162,7 @@ const bgColor = computed(() => {
         </template>
       </var-app-bar>
 
-      <div class="flex-1 flex flex-col p-6 overflow-y-auto">
+      <div class="flex-1 flex flex-col px-6 pt-6 pb-[calc(24px+env(safe-area-inset-bottom))] overflow-y-auto">
         <h2 class="text-2xl font-black text-gray-800 mb-6">选择题库</h2>
 
         <div class="grid grid-cols-2 gap-4 mb-8">
@@ -215,7 +215,7 @@ const bgColor = computed(() => {
           radius="16"
           color="linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)"
           text-color="#fff"
-          class="mt-auto shadow-xl font-bold text-xl h-14"
+          class="mb-8 shrink-0 shadow-xl font-bold text-xl h-14"
           @click="onStartGame"
         >
           开始游戏
