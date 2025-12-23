@@ -9,7 +9,7 @@ import GameBoard from "./components/GameBoard.vue";
 
 // === State Management ===
 const gameStore = useGameStore();
-const { players, currentDrawerId, currentWord, scores, status, timeLeft, category } = storeToRefs(gameStore);
+const { players, currentDrawerId, currentWord, scores, status, timeLeft, category, roundWinnerId, nextDrawerId } = storeToRefs(gameStore);
 const { connect, socketId } = useSocket(); // Use reactive socketId
 const socket = connect();
 
@@ -85,16 +85,45 @@ function setCategory(cat) {
   showSettings.value = false;
 }
 
+// ... existing code ...
+
+const roundWinnerName = computed(() => {
+  if (!roundWinnerId.value) return "无";
+  const p = players.value.find(p => p.id === roundWinnerId.value);
+  return p ? p.name : "未知";
+});
+
+const nextDrawerName = computed(() => {
+  if (!nextDrawerId.value) return "???";
+  const p = players.value.find(p => p.id === nextDrawerId.value);
+  return p ? p.name : "未知";
+});
+
+// ... existing code ...
+
+function handleAvatarClick(player) {
+  // Only drawer can select winner, and can't select self
+  if (!isDrawer.value) return;
+  if (player.id === socketId.value) return;
+  if (status.value !== "playing") return;
+
+  Dialog({
+    title: "确认正确?",
+    message: `确认 ${player.name} 猜对了吗? \n确认后本局将结束。`,
+    onConfirm: () => {
+      socket.emit("drawer_confirm_winner", { winnerId: player.id });
+      Snackbar.success("已确认获胜者!");
+    }
+  });
+}
+
 function saveImage() {
   gameBoardRef.value?.saveImage();
   Snackbar.success("正在保存画作...");
 }
 
-function addScore(playerId) {
-  if (!isDrawer.value) return;
-  socket.emit("add_score", { playerId, amount: 10 });
-  Snackbar.info("加分成功! +10");
-}
+// Removed old addScore
+// function addScore(playerId) { ... }
 
 // Tool Handlers
 function selectColor(color) {
@@ -213,7 +242,7 @@ onMounted(() => {
     </header>
 
     <!-- 2. Main Game Board -->
-    <main class="flex-1 w-full relative bg-white m-2 border-2 border-amber-200 rounded-xl overflow-hidden shadow-inner">
+    <main class="flex-1 w-full relative bg-white border-t-2 border-b-2 border-amber-200 overflow-hidden shadow-inner">
       <GameBoard
         ref="gameBoardRef"
         :is-drawer="isDrawer"
@@ -252,88 +281,91 @@ onMounted(() => {
           </div>
         </div>
       </template>
-    </main>
 
-    <!-- 3. Overlays -->
-    <!-- Waiting -->
-    <div
-      v-if="status === 'waiting'"
-      class="absolute inset-0 top-16 bottom-24 bg-white/95 z-30 flex flex-col items-center justify-center backdrop-blur-sm"
-    >
-      <div class="text-6xl mb-6 animate-bounce">🎨</div>
-      <h2 class="text-2xl font-bold text-gray-700 mb-2">家庭画画猜谜</h2>
-      <p class="text-gray-500 mb-8">当前在线: {{ players.length }} 人</p>
-      <var-button v-if="players.length > 0" type="primary" size="large" class="w-48 shadow-xl text-lg font-bold" @click="requestNewRound">
-        开始游戏
-      </var-button>
-    </div>
-
-    <!-- Result -->
-    <div
-      v-if="status === 'result'"
-      class="absolute inset-0 top-16 bottom-24 bg-black/80 z-30 flex flex-col items-center justify-center text-white backdrop-blur-md"
-    >
-      <div class="text-6xl mb-4 animate-pulse">⏰</div>
-      <h2 class="text-3xl font-bold mb-6 tracking-wider">时间到!</h2>
-
-      <div class="mb-8 text-center">
-        <p class="text-gray-300 text-sm mb-1">正确答案</p>
-        <p class="text-4xl font-bold text-yellow-400 tracking-[0.2em]">{{ currentWord }}</p>
-      </div>
-
-      <div v-if="topPlayer" class="flex gap-2 items-center bg-white/10 px-4 py-2 rounded-lg mb-8">
-        <span class="text-xs text-gray-300">目前领先:</span>
-        <var-avatar size="small" :style="{ background: getAvatarColor(topPlayer.name) }">{{ topPlayer.name }}</var-avatar>
-        <span class="font-bold text-yellow-400">{{ scores[topPlayer.name] || 0 }}分</span>
-      </div>
-
-      <div class="flex flex-col gap-4 w-48">
-        <var-button block type="success" size="large" class="shadow-xl font-bold" @click="saveImage">
-          <var-icon name="image-outline" class="mr-2" /> 保存画作
+      <!-- 3. Overlays -->
+      <!-- Waiting -->
+      <div class="absolute inset-0 bg-white/95 z-30 flex flex-col items-center justify-center backdrop-blur-sm" v-if="status === 'waiting'">
+        <div class="text-6xl mb-6 animate-bounce">🎨</div>
+        <h2 class="text-2xl font-bold text-gray-700 mb-2">家庭画画猜谜</h2>
+        <p class="text-gray-500 mb-8">当前在线: {{ players.length }} 人</p>
+        <var-button v-if="players.length > 0" type="primary" size="large" class="w-48 shadow-xl text-lg font-bold" @click="requestNewRound">
+          开始游戏
         </var-button>
-
-        <var-button v-if="isDrawer" type="warning" size="large" class="shadow-2xl text-lg font-bold" @click="requestNewRound">
-          下一局 ➡️
-        </var-button>
-        <div v-else class="text-center text-sm opacity-75 animate-pulse">等待画家开启下一轮...</div>
       </div>
-    </div>
 
-    <!-- 4. Footer -->
-    <footer class="h-24 bg-white border-t border-amber-100 flex items-center px-2 overflow-x-auto gap-3 shrink-0">
-      <transition-group name="list" tag="div" class="flex gap-3 w-full px-2">
-        <div v-for="p in players" :key="p.id" class="flex flex-col items-center min-w-[60px] relative transition-all">
-          <div class="relative transition-transform duration-300" :class="{ 'scale-125 z-20': scoreEffects[p.id] }">
-            <var-avatar
-              size="large"
-              :style="{ background: getAvatarColor(p.name) }"
-              class="border-2 border-white shadow-md font-bold text-white text-sm transition-all"
-              :class="{ 'ring-4 ring-yellow-400': scoreEffects[p.id] }"
-            >
-              {{ p.name }}
-            </var-avatar>
-            <div
-              v-if="scoreEffects[p.id]"
-              class="absolute -top-8 left-0 w-full text-center text-yellow-500 font-bold text-xl animate-bounce pointer-events-none"
-            >
-              +10
-            </div>
-            <div
-              v-if="p.id === currentDrawerId"
-              class="absolute -top-1 -right-1 bg-yellow-400 rounded-full p-[2px] shadow-sm animate-bounce text-xs"
-            >
-              🖌️
-            </div>
-          </div>
-          <div class="text-center mt-1 leading-tight">
-            <div class="text-[10px] text-gray-400">{{ p.name }}</div>
-            <div class="font-bold text-amber-600 font-mono">{{ scores[p.name] || 0 }}</div>
-          </div>
-          <div v-if="isDrawer && p.id !== socketId" class="absolute -top-5 w-full flex justify-center transform scale-90">
-            <var-button round color="#ff9f43" text-color="#fff" size="mini" elevation="2" @click="addScore(p.id)">+10</var-button>
+      <!-- Result -->
+      <div
+        v-if="status === 'result'"
+        class="absolute inset-0 bg-black/80 z-30 flex flex-col items-center justify-center text-white backdrop-blur-md"
+      >
+        <div class="text-6xl mb-4 animate-pulse">⏰</div>
+        <h2 class="text-3xl font-bold mb-6 tracking-wider">时间到!</h2>
+
+        <div class="mb-8 text-center">
+          <p class="text-gray-300 text-sm mb-1">正确答案</p>
+          <p class="text-4xl font-bold text-yellow-400 tracking-[0.2em]">{{ currentWord }}</p>
+        </div>
+
+        <div class="mb-4 text-center">
+          <p class="text-gray-300 text-sm mb-1">🎉 本局获胜</p>
+          <div class="flex items-center justify-center gap-2">
+            <var-avatar size="small" :style="{ background: getAvatarColor(roundWinnerName) }">{{ roundWinnerName }}</var-avatar>
+            <span class="text-2xl font-bold text-yellow-400">{{ roundWinnerName }}</span>
           </div>
         </div>
-      </transition-group>
+
+        <div class="mb-8 text-center bg-white/10 px-6 py-2 rounded-lg">
+          <p class="text-gray-300 text-xs mb-1">下一位画家</p>
+          <div class="flex items-center justify-center gap-2">
+            <span class="text-xl font-bold text-white">{{ nextDrawerName }}</span>
+            <var-avatar size="mini" :style="{ background: getAvatarColor(nextDrawerName) }">{{ nextDrawerName }}</var-avatar>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-4 w-48">
+          <var-button block type="success" size="large" class="shadow-xl font-bold" @click="saveImage">
+            <var-icon name="image-outline" class="mr-2" /> 保存画作
+          </var-button>
+
+          <var-button v-if="isDrawer" type="warning" size="large" class="shadow-2xl text-lg font-bold" @click="requestNewRound">
+            下一局 ➡️
+          </var-button>
+          <div v-else class="text-center text-sm opacity-75 animate-pulse">等待画家开启下一轮...</div>
+        </div>
+      </div>
+    </main>
+
+    <!-- 4. Footer -->
+    <footer class="h-32 bg-white flex items-center justify-center px-2 overflow-x-auto">
+      <div
+        v-for="p in players"
+        :key="p.id"
+        class="flex-1 h-full min-w-[60px] flex flex-col items-center justify-center relative transition-all cursor-pointer hover:bg-amber-50 rounded-lg"
+        @click="handleAvatarClick(p)"
+      >
+        <div class="relative transition-transform duration-300" :class="{ 'scale-125 z-20': scoreEffects[p.id] }">
+          <var-avatar
+            :style="{ background: getAvatarColor(p.name) }"
+            class="w-10 h-10 border-2 border-white shadow-md font-bold text-white text-xs transition-all"
+            :class="{ 'ring-4 ring-yellow-400': scoreEffects[p.id] }"
+          >
+            {{ p.name }}
+          </var-avatar>
+          <div
+            v-if="p.id === currentDrawerId"
+            class="absolute -top-1 -right-1 bg-yellow-400 rounded-full p-[2px] shadow-sm animate-bounce text-xs"
+          >
+            🖌️
+          </div>
+        </div>
+        <div class="font-bold text-amber-600 font-mono">{{ scores[p.name] || 0 }}</div>
+        <div v-if="isDrawer && p.id !== socketId" class="absolute -top-2 w-full flex justify-center transform scale-90">
+          <!-- Hint text instead of button -->
+          <span class="text-[10px] text-amber-500 bg-white/80 px-1 rounded border border-amber-200 shadow-sm animate-pulse"
+            >点击选为赢家</span
+          >
+        </div>
+      </div>
       <div v-if="players.length === 0" class="w-full text-center text-gray-300 text-sm">Waiting for players...</div>
     </footer>
 

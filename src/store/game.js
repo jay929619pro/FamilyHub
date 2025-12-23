@@ -8,10 +8,12 @@ export const useGameStore = defineStore("game", () => {
   const currentWord = ref(""); // 当前题目 (仅画手可见，或猜中后显示)
   const scores = ref({}); // 积分表: { [playerName]: score }
 
-  // 生命周期状态
+  // 游戏循环状态
   const status = ref("waiting"); // 'waiting' | 'playing' | 'result'
-  const timeLeft = ref(0);
   const round = ref(0);
+  const timeLeft = ref(0);
+  const roundWinnerId = ref(null); // 本轮获胜者ID
+  const nextDrawerId = ref(null); // 下一位画手ID
 
   // 辅助状态
   const isGameStarted = ref(false); // Deprecated, use status instead
@@ -33,6 +35,8 @@ export const useGameStore = defineStore("game", () => {
     if (payload.status) status.value = payload.status;
     if (payload.timeLeft !== undefined) timeLeft.value = payload.timeLeft;
     if (payload.round !== undefined) round.value = payload.round;
+    if (payload.roundWinnerId !== undefined) roundWinnerId.value = payload.roundWinnerId;
+    if (payload.nextDrawerId !== undefined) nextDrawerId.value = payload.nextDrawerId;
 
     // Category update
     if (payload.category) category.value = payload.category;
@@ -60,8 +64,11 @@ export const useGameStore = defineStore("game", () => {
     currentWord,
     scores,
     status,
-    timeLeft,
     round,
+    timeLeft,
+    roundWinnerId,
+    nextDrawerId,
+
     updateState,
     updateTimer,
     resetGame,

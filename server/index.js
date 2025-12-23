@@ -41,7 +41,11 @@ const GAME_STATE = {
   round: 0, // Round counter
 
   // History for Reconnection
-  recording: [] // Array of drawing events
+  recording: [], // Array of drawing events
+
+  // Refactor: Single Winner & Next Preview
+  nextDrawerId: null,
+  roundWinnerId: null
 };
 
 // Timer reference
@@ -90,6 +94,14 @@ function endRound() {
   GAME_STATE.status = "result";
   GAME_STATE.timeLeft = 0;
 
+  // Pre-calculate next drawer for UI display
+  if (GAME_STATE.players.length > 0) {
+    const currentIdx = GAME_STATE.players.findIndex(p => p.id === GAME_STATE.currentDrawerId);
+    let nextIdx = (currentIdx + 1) % GAME_STATE.players.length;
+    if (currentIdx === -1) nextIdx = 0;
+    GAME_STATE.nextDrawerId = GAME_STATE.players[nextIdx].id;
+  }
+
   broadcastState(); // Sync status change
   io.emit("round_end"); // Trigger client effects
 }
@@ -104,15 +116,18 @@ function nextRound() {
   GAME_STATE.currentWord = list[idx];
 
   // 2. Rotate drawer (Round Robin)
-  if (GAME_STATE.players.length > 0) {
+  if (GAME_STATE.nextDrawerId) {
+    GAME_STATE.currentDrawerId = GAME_STATE.nextDrawerId;
+  } else if (GAME_STATE.players.length > 0) {
     const currentIdx = GAME_STATE.players.findIndex(p => p.id === GAME_STATE.currentDrawerId);
     let nextIdx = (currentIdx + 1) % GAME_STATE.players.length;
-
-    // Edge case if current drawer left
     if (currentIdx === -1) nextIdx = 0;
-
     GAME_STATE.currentDrawerId = GAME_STATE.players[nextIdx].id;
   }
+
+  // Cleanup round state
+  GAME_STATE.nextDrawerId = null;
+  GAME_STATE.roundWinnerId = null;
 
   // 3. Increment Round Count
   GAME_STATE.round++;
@@ -197,19 +212,28 @@ io.on("connection", socket => {
     }
   });
 
-  // -- Scoring --
-  socket.on("add_score", ({ playerId, amount }) => {
+  // -- Scoring (Single Winner) --
+  socket.on("drawer_confirm_winner", ({ winnerId }) => {
     if (socket.id !== GAME_STATE.currentDrawerId) return; // Strict auth
 
-    const targetPlayer = GAME_STATE.players.find(p => p.id === playerId);
+    const targetPlayer = GAME_STATE.players.find(p => p.id === winnerId);
     if (!targetPlayer) return;
 
+    // 1. Update Score
     const name = targetPlayer.name;
     const currentScore = GAME_STATE.scores[name] || 0;
-    GAME_STATE.scores[name] = currentScore + amount;
+    GAME_STATE.scores[name] = currentScore + 10; // Fixed +10 for now
 
+    // 2. Set Winner
+    GAME_STATE.roundWinnerId = winnerId;
+
+    // 3. End Round Immediately
     broadcastState();
-    io.emit("score_animate", { playerId, amount });
+    io.emit("score_animate", { playerId: winnerId, amount: 10 });
+
+    // Short delay to let animation play before showing result?
+    // Or immediate. User asked for "Confirm -> End".
+    endRound();
   });
 
   // -- Cleanup --
