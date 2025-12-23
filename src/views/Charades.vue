@@ -181,7 +181,7 @@ const bgColor = computed(() => {
               class="w-12 h-12 rounded-2xl flex items-center justify-center mb-3 text-white shadow-md relative overflow-hidden"
               :style="{ background: cat.color }"
             >
-              <var-icon :name="cat.icon" size="24" class="relative z-10" />
+              <span class="text-2xl relative z-10">{{ cat.emoji }}</span>
             </div>
             <h3 class="font-bold text-gray-800">{{ cat.title }}</h3>
             <p class="text-xs text-gray-400 mt-1">{{ cat.words.length }} 个词语</p>
