@@ -14,8 +14,8 @@ const { connect } = useSocket();
 const socket = connect();
 
 // === Local State ===
-const myName = ref("");
-const showRoleSelect = ref(true);
+const myName = ref(localStorage.getItem("family_hub_name") || "");
+const showRoleSelect = ref(!myName.value);
 const predefinedRoles = ["爸爸", "妈妈", "舅舅", "宝宝"];
 
 // Drawing Tools
@@ -23,6 +23,9 @@ const gameBoardRef = ref(null);
 const currentTool = ref("pen"); // 'pen' | 'eraser'
 const currentColor = ref("#333333");
 const palette = ["#333333", "#ef4444", "#3b82f6", "#22c55e", "#f59e0b"];
+
+// Animation State
+const scoreEffects = ref({}); // { [playerId]: boolean }
 
 // === Computed ===
 
@@ -47,7 +50,7 @@ const getAvatarColor = name => roleColors[name] || "#ccc";
 // Highest Score Player (for Result Screen)
 const topPlayer = computed(() => {
   if (players.value.length === 0) return null;
-  // Simple sort
+  // Simple sort descending
   return [...players.value].sort((a, b) => (scores.value[b.id] || 0) - (scores.value[a.id] || 0))[0];
 });
 
@@ -55,6 +58,7 @@ const topPlayer = computed(() => {
 
 function selectRole(role) {
   myName.value = role;
+  localStorage.setItem("family_hub_name", role);
   showRoleSelect.value = false;
   socket.emit("join_game", { name: role });
   Snackbar.success(`欢迎, ${role}!`);
@@ -87,6 +91,9 @@ function confirmClear() {
 // TTS Voice Service
 function speak(text) {
   if (!("speechSynthesis" in window)) return;
+  // Prevent stacking
+  window.speechSynthesis.cancel();
+
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = "zh-CN";
   utterance.rate = 0.9;
@@ -101,39 +108,69 @@ watch(status, (newVal, oldVal) => {
       speak(`请画出：${currentWord.value}`);
     }
   } else if (newVal === "result") {
-    // Round End logic...
+    // Round End
   }
 });
 
-// Watch Drawer assignment (in case status didn't change but drawer did)
+// Watch Drawer assignment (late join / reassign)
 watch(isDrawer, newVal => {
   if (newVal && status.value === "playing") {
-    // Re-speak if late join or reassigned
     speak(`请画出：${currentWord.value}`);
   }
 });
 
-const scoreEffects = ref({}); // { [id]: boolean }
+// === Lifecycle ===
 
-// Tool Handlers
-/* ... (existing logic) ... */
+onMounted(() => {
+  socket.on("connect", () => {
+    // Auto-rejoin if we have a name
+    if (myName.value) {
+      socket.emit("join_game", { name: myName.value });
+    }
+  });
 
-// ...
-
-// Animation Trigger
-socket.on("score_animate", ({ playerId }) => {
-  scoreEffects.value[playerId] = true;
-  setTimeout(() => {
-    scoreEffects.value[playerId] = false;
-  }, 1000);
+  // Listen for score animation
+  socket.on("score_animate", ({ playerId }) => {
+    scoreEffects.value[playerId] = true;
+    setTimeout(() => {
+      scoreEffects.value[playerId] = false;
+    }, 1000);
+  });
 });
-
-/* ... (existing watch logic) ... */
 </script>
 
 <template>
   <div class="h-screen w-screen flex flex-col bg-amber-50 overflow-hidden select-none">
-    <!-- ... header ... -->
+    <!-- 1. Header -->
+    <header class="h-16 flex items-center justify-between px-4 bg-white shadow-sm z-10 shrink-0">
+      <div class="flex flex-col justify-center">
+        <template v-if="isDrawer">
+          <span class="text-xs text-gray-400 font-mono tracking-wide">{{ wordWithPinyin.py }}</span>
+          <span class="text-xl font-bold text-gray-800 tracking-widest">{{ wordWithPinyin.word }}</span>
+        </template>
+        <template v-else>
+          <span class="text-lg text-gray-500 font-medium tracking-wide">
+            {{ currentDrawerId ? "猜猜他在画什么?" : "等待游戏开始" }}
+          </span>
+        </template>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <!-- Timer Display -->
+        <div
+          v-if="status === 'playing'"
+          class="font-mono text-xl font-bold flex items-center gap-1 transition-colors"
+          :class="timeLeft <= 10 ? 'text-red-500 animate-pulse' : 'text-gray-600'"
+        >
+          <var-icon name="clock-outline" size="20" />
+          {{ timeLeft }}s
+        </div>
+
+        <var-chip :type="isDrawer ? 'primary' : 'default'" size="small">
+          {{ isDrawer ? "你是画家 🖌️" : "猜题中 👀" }}
+        </var-chip>
+      </div>
+    </header>
 
     <!-- 2. Main Game Board -->
     <main class="flex-1 w-full relative bg-white m-2 border-2 border-amber-200 rounded-xl overflow-hidden shadow-inner">
@@ -190,7 +227,9 @@ socket.on("score_animate", ({ playerId }) => {
       <h2 class="text-2xl font-bold text-gray-700 mb-2">家庭画画猜谜</h2>
       <p class="text-gray-500 mb-8">当前在线: {{ players.length }} 人</p>
 
-      <var-button type="primary" size="large" class="w-48 shadow-xl text-lg font-bold" @click="requestNewRound"> 开始游戏 </var-button>
+      <var-button v-if="players.length > 0" type="primary" size="large" class="w-48 shadow-xl text-lg font-bold" @click="requestNewRound">
+        开始游戏
+      </var-button>
     </div>
 
     <!-- Result Overlay -->
@@ -213,7 +252,16 @@ socket.on("score_animate", ({ playerId }) => {
         <span class="font-bold text-yellow-400">{{ scores[topPlayer.id] || 0 }}分</span>
       </div>
 
-      <var-button type="warning" size="large" class="w-48 shadow-2xl text-lg font-bold" @click="requestNewRound"> 下一局 ➡️ </var-button>
+      <!-- Only drawer (or anyone if logic allows) can start next round -->
+      <var-button
+        v-if="isDrawer || players.length > 0"
+        type="warning"
+        size="large"
+        class="w-48 shadow-2xl text-lg font-bold"
+        @click="requestNewRound"
+      >
+        下一局 ➡️
+      </var-button>
     </div>
 
     <!-- 4. Footer (Players) -->
@@ -229,7 +277,6 @@ socket.on("score_animate", ({ playerId }) => {
             >
               {{ p.name }}
             </var-avatar>
-
             <!-- +10 Floating Text -->
             <div
               v-if="scoreEffects[p.id]"
