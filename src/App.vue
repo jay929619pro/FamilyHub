@@ -105,7 +105,7 @@ watch(status, (newVal, oldVal) => {
   if (newVal === "playing" && oldVal !== "playing") {
     // Round Start: Speak word if drawer
     if (isDrawer.value) {
-      speak(`请画出：${currentWord.value}`);
+      speak(`你要画的是：${currentWord.value}`);
     }
   } else if (newVal === "result") {
     // Round End
@@ -115,7 +115,7 @@ watch(status, (newVal, oldVal) => {
 // Watch Drawer assignment (late join / reassign)
 watch(isDrawer, newVal => {
   if (newVal && status.value === "playing") {
-    speak(`请画出：${currentWord.value}`);
+    speak(`你要画的是：${currentWord.value}`);
   }
 });
 
@@ -252,16 +252,11 @@ onMounted(() => {
         <span class="font-bold text-yellow-400">{{ scores[topPlayer.id] || 0 }}分</span>
       </div>
 
-      <!-- Only drawer (or anyone if logic allows) can start next round -->
-      <var-button
-        v-if="isDrawer || players.length > 0"
-        type="warning"
-        size="large"
-        class="w-48 shadow-2xl text-lg font-bold"
-        @click="requestNewRound"
-      >
+      <!-- STRICT PERMISSION: Only drawer can start next round -->
+      <var-button v-if="isDrawer" type="warning" size="large" class="w-48 shadow-2xl text-lg font-bold" @click="requestNewRound">
         下一局 ➡️
       </var-button>
+      <div v-else class="text-sm opacity-75 animate-pulse">等待画家开启下一轮...</div>
     </div>
 
     <!-- 4. Footer (Players) -->
