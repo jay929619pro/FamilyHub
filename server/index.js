@@ -95,14 +95,6 @@ function endRound() {
   GAME_STATE.status = "result";
   GAME_STATE.timeLeft = 0;
 
-  // Pre-calculate next drawer for UI display
-  if (GAME_STATE.players.length > 0) {
-    const currentIdx = GAME_STATE.players.findIndex(p => p.id === GAME_STATE.currentDrawerId);
-    let nextIdx = (currentIdx + 1) % GAME_STATE.players.length;
-    if (currentIdx === -1) nextIdx = 0;
-    GAME_STATE.nextDrawerId = GAME_STATE.players[nextIdx].id;
-  }
-
   broadcastState(); // Sync status change
   io.emit("round_end"); // Trigger client effects
 }
@@ -110,33 +102,37 @@ function endRound() {
 /**
  * Prepare next round: Rotate drawer, pick word, start timer.
  */
-function nextRound() {
-  // 1. Pick new word based on category
+/**
+ * Reset game state to lobby (Grab Mode)
+ */
+function resetToLobby() {
+  GAME_STATE.status = "waiting";
+  GAME_STATE.currentDrawerId = null;
+  GAME_STATE.roundWinnerId = null;
+  GAME_STATE.timeLeft = 0;
+  if (timerInterval) clearInterval(timerInterval);
+
+  broadcastState();
+}
+
+/**
+ * Start a new round with specific drawer
+ */
+function startRound(drawerId) {
+  // 1. Set Drawer
+  GAME_STATE.currentDrawerId = drawerId;
+
+  // 2. Pick Word
   const list = WORD_LISTS["kids"];
   const idx = Math.floor(Math.random() * list.length);
   GAME_STATE.currentWord = list[idx];
 
-  // 2. Rotate drawer (Round Robin)
-  if (GAME_STATE.nextDrawerId) {
-    GAME_STATE.currentDrawerId = GAME_STATE.nextDrawerId;
-  } else if (GAME_STATE.players.length > 0) {
-    const currentIdx = GAME_STATE.players.findIndex(p => p.id === GAME_STATE.currentDrawerId);
-    let nextIdx = (currentIdx + 1) % GAME_STATE.players.length;
-    if (currentIdx === -1) nextIdx = 0;
-    GAME_STATE.currentDrawerId = GAME_STATE.players[nextIdx].id;
-  }
-
-  // Cleanup round state
-  GAME_STATE.nextDrawerId = null;
+  // 3. Reset Round State
   GAME_STATE.roundWinnerId = null;
-
-  // 3. Increment Round Count
-  GAME_STATE.round++;
-
-  // 4. Reset Canvas & Start
-  // Clear history and canvas
   GAME_STATE.recording = [];
   io.emit("clear_canvas");
+
+  // 4. Start Timer
   startTimer();
 }
 
@@ -168,11 +164,6 @@ io.on("connection", socket => {
       existing.name = name;
     }
 
-    // Auto-elect drawer if lobby was empty
-    if (!GAME_STATE.currentDrawerId) {
-      GAME_STATE.currentDrawerId = socket.id;
-    }
-
     broadcastState();
 
     // Sync History to the joining user ONLY
@@ -183,13 +174,31 @@ io.on("connection", socket => {
 
   // -- Game Flow Control --
   socket.on("next_round", () => {
-    // Auth: Only drawer or new game starter can trigger
-    // Also allow ANYONE to start if game is 'waiting' (lobby mode)
-    const isDrawer = socket.id === GAME_STATE.currentDrawerId;
-    const canStart = isDrawer || GAME_STATE.status === "waiting" || GAME_STATE.status === "result";
+    // In Grab Mode, this button just resets to lobby so people can grab
+    resetToLobby();
+  });
 
-    if (canStart) {
-      nextRound();
+  socket.on("claim_drawer", () => {
+    // Race condition check: Only if no drawer is assigned
+    if (!GAME_STATE.currentDrawerId && GAME_STATE.status === "waiting") {
+      startRound(socket.id);
+    }
+  });
+
+  socket.on("give_up_drawer", () => {
+    // Only current drawer can give up
+    if (socket.id === GAME_STATE.currentDrawerId) {
+      resetToLobby();
+    }
+  });
+
+  socket.on("change_word", () => {
+    // Only drawer can change word
+    if (socket.id === GAME_STATE.currentDrawerId) {
+      const list = WORD_LISTS["kids"];
+      const idx = Math.floor(Math.random() * list.length);
+      GAME_STATE.currentWord = list[idx];
+      broadcastState();
     }
   });
 
@@ -256,8 +265,8 @@ io.on("connection", socket => {
         GAME_STATE.round = 0;
         GAME_STATE.timeLeft = 0;
       } else {
-        // Force next round immediately if drawer leaves mid-game
-        nextRound();
+        // Force reset to lobby if drawer leaves
+        resetToLobby();
       }
     }
     broadcastState();

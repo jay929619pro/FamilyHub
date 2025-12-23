@@ -9,7 +9,7 @@ import GameBoard from "./components/GameBoard.vue";
 
 // === State Management ===
 const gameStore = useGameStore();
-const { players, currentDrawerId, currentWord, scores, status, timeLeft, roundWinnerId, nextDrawerId } = storeToRefs(gameStore);
+const { players, currentDrawerId, currentWord, scores, status, timeLeft, roundWinnerId } = storeToRefs(gameStore);
 const { connect, socketId } = useSocket(); // Use reactive socketId
 const socket = connect();
 
@@ -50,6 +50,10 @@ const wordWithPinyin = computed(() => {
   }));
 });
 
+const sortedPlayers = computed(() => {
+  return [...players.value].sort((a, b) => (scores.value[b.name] || 0) - (scores.value[a.name] || 0));
+});
+
 // Avatar Colors
 const roleColors = {
   爸爸: "linear-gradient(to right, #2980b9, #6dd5fa)",
@@ -79,17 +83,29 @@ function requestNewRound() {
   socket.emit("next_round");
 }
 
+function changeWord() {
+  socket.emit("change_word");
+}
+
+function claimDrawer() {
+  socket.emit("claim_drawer");
+}
+
+function giveUpDrawer() {
+  Dialog({
+    title: "放弃作画?",
+    message: "确定要让给别人画吗?",
+    onConfirm: () => {
+      socket.emit("give_up_drawer");
+    }
+  });
+}
+
 // ... existing code ...
 
 const roundWinnerName = computed(() => {
   if (!roundWinnerId.value) return "无";
   const p = players.value.find(p => p.id === roundWinnerId.value);
-  return p ? p.name : "未知";
-});
-
-const nextDrawerName = computed(() => {
-  if (!nextDrawerId.value) return "???";
-  const p = players.value.find(p => p.id === nextDrawerId.value);
   return p ? p.name : "未知";
 });
 
@@ -224,8 +240,9 @@ onMounted(() => {
                 <span class="text-xs text-gray-400 font-mono">{{ item.py }}</span>
                 <span class="text-xl font-bold text-gray-800 tracking-wide leading-none">{{ item.char }}</span>
               </div>
-              <div class="ml-2 mb-0.5">
-                <var-button round size="mini" type="warning" @click="requestNewRound">换一题</var-button>
+              <div class="flex items-center gap-2 ml-2 mb-0.5">
+                <var-button round size="mini" type="warning" @click="changeWord">换一题</var-button>
+                <var-button round size="mini" color="#9ca3af" text-color="#fff" @click="giveUpDrawer">我不画了</var-button>
               </div>
             </div>
           </template>
@@ -291,13 +308,24 @@ onMounted(() => {
 
       <!-- 3. Overlays -->
       <!-- Waiting -->
+      <!-- Waiting -->
       <div class="absolute inset-0 bg-white/95 z-30 flex flex-col items-center justify-center backdrop-blur-sm" v-if="status === 'waiting'">
         <div class="text-6xl mb-6 animate-bounce">🎨</div>
         <h2 class="text-2xl font-bold text-gray-700 mb-2">家庭画画猜谜</h2>
         <p class="text-gray-500 mb-8">当前在线: {{ players.length }} 人</p>
-        <var-button v-if="players.length > 0" type="primary" size="large" class="w-48 shadow-xl text-lg font-bold" @click="requestNewRound">
-          开始游戏
-        </var-button>
+
+        <div v-if="players.length > 0">
+          <var-button
+            type="success"
+            size="large"
+            round
+            class="w-48 h-48 text-2xl font-bold shadow-xl animate-pulse border-4 border-green-200"
+            @click="claimDrawer"
+          >
+            这局我来画 🙋‍♂️
+          </var-button>
+          <p class="mt-4 text-center text-gray-500 text-sm">谁想画就点这里!</p>
+        </div>
       </div>
 
       <!-- Result -->
@@ -320,22 +348,12 @@ onMounted(() => {
           </div>
         </div>
 
-        <div class="mb-8 text-center bg-white/10 px-6 py-2 rounded-lg">
-          <p class="text-gray-300 text-xs mb-1">下一位画家</p>
-          <div class="flex items-center justify-center gap-2">
-            <var-avatar size="mini" :style="{ background: getAvatarColor(nextDrawerName) }">{{ nextDrawerName }}</var-avatar>
-          </div>
-        </div>
-
         <div class="flex flex-col gap-4 w-48">
           <var-button block type="success" size="large" class="shadow-xl font-bold" @click="saveImage">
             <var-icon name="image-outline" class="mr-2" /> 保存画作
           </var-button>
 
-          <var-button v-if="isDrawer" type="warning" size="large" class="shadow-2xl text-lg font-bold" @click="requestNewRound">
-            下一局 ➡️
-          </var-button>
-          <div v-else class="text-center text-sm opacity-75 animate-pulse">等待画家开启下一轮...</div>
+          <var-button type="warning" size="large" class="shadow-2xl text-lg font-bold" @click="requestNewRound"> 下一局 ➡️ </var-button>
         </div>
       </div>
     </main>
@@ -343,7 +361,7 @@ onMounted(() => {
     <!-- 4. Footer -->
     <footer class="h-24 bg-white flex items-center justify-center px-2 overflow-x-auto">
       <div
-        v-for="p in players"
+        v-for="p in sortedPlayers"
         :key="p.id"
         class="flex-1 h-full min-w-[60px] flex flex-col items-center justify-center relative transition-all cursor-pointer hover:bg-amber-50 rounded-lg"
         @click="handleAvatarClick(p)"

@@ -13,7 +13,7 @@ export const useGameStore = defineStore("game", () => {
   const round = ref(0);
   const timeLeft = ref(0);
   const roundWinnerId = ref(null); // 本轮获胜者ID
-  const nextDrawerId = ref(null); // 下一位画手ID
+  // const nextDrawerId = ref(null); // Deprecated in Grab Mode // 下一位画手ID
 
   // 辅助状态
   const isGameStarted = ref(false); // Deprecated, use status instead
@@ -35,7 +35,7 @@ export const useGameStore = defineStore("game", () => {
     if (payload.timeLeft !== undefined) timeLeft.value = payload.timeLeft;
     if (payload.round !== undefined) round.value = payload.round;
     if (payload.roundWinnerId !== undefined) roundWinnerId.value = payload.roundWinnerId;
-    if (payload.nextDrawerId !== undefined) nextDrawerId.value = payload.nextDrawerId;
+    // if (payload.nextDrawerId !== undefined) nextDrawerId.value = payload.nextDrawerId;
   }
 
   function updateTimer(seconds) {
@@ -62,7 +62,6 @@ export const useGameStore = defineStore("game", () => {
     round,
     timeLeft,
     roundWinnerId,
-    nextDrawerId,
 
     updateState,
     updateTimer,
