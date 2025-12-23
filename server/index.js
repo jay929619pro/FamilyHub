@@ -18,67 +18,122 @@ const io = new Server(httpServer, {
   }
 });
 
-// ====== 简单的内存数据库 ======
+// ====== In-Memory Database (Single Source of Truth) ======
 const GAME_STATE = {
-  players: [], // [{ id, name }]
-  scores: {}, // { [id]: number }
+  players: [], // [{ id, name, avatar... }]
+  scores: {}, // { [socketId]: number }
   currentDrawerId: null,
-  currentWord: "苹果" // 默认词
+  currentWord: "苹果",
+
+  // New: Game Lifecycle
+  status: "waiting", // 'waiting' | 'playing' | 'result'
+  timeLeft: 0, // seconds
+  round: 0
 };
 
-// 简单的词库
+// Word Bank
 const WORD_LIST = ["苹果", "香蕉", "汽车", "房子", "小狗", "太阳", "月亮", "机器人", "西瓜", "电脑"];
 
-// ====== 辅助函数 ======
+let timerInterval = null;
+const ROUND_DURATION = 60; // seconds
+
+/**
+ * Broadcasts the full game state to all connected clients.
+ * Uses 'stateUpdate' event to synchronize UI.
+ */
 function broadcastState() {
   io.emit("stateUpdate", {
     players: GAME_STATE.players,
     scores: GAME_STATE.scores,
     currentDrawerId: GAME_STATE.currentDrawerId,
-    currentWord: GAME_STATE.currentWord
+    currentWord: GAME_STATE.currentWord,
+    status: GAME_STATE.status,
+    timeLeft: GAME_STATE.timeLeft,
+    round: GAME_STATE.round
   });
 }
 
+/**
+ * Starts the countdown timer for the current round.
+ */
+function startTimer() {
+  if (timerInterval) clearInterval(timerInterval);
+
+  GAME_STATE.timeLeft = ROUND_DURATION;
+  GAME_STATE.status = "playing";
+
+  // Broadcast immediately so clients show 60s
+  broadcastState();
+
+  timerInterval = setInterval(() => {
+    GAME_STATE.timeLeft--;
+
+    // Optimize: Broadcast usually only needs timeLeft, but for simplicity we broadcast state
+    // Or simpler: emit distinct 'timerTick' event to reduce payload
+    io.emit("timerTick", GAME_STATE.timeLeft);
+
+    if (GAME_STATE.timeLeft <= 0) {
+      endRound();
+    }
+  }, 1000);
+}
+
+/**
+ * Ends the current round.
+ */
+function endRound() {
+  if (timerInterval) clearInterval(timerInterval);
+  GAME_STATE.status = "result";
+  GAME_STATE.timeLeft = 0;
+
+  broadcastState();
+  io.emit("round_end"); // Trigger client-side animations/modals
+}
+
+/**
+ * Rotates the game turn: selects new word and new drawer.
+ */
 function nextRound() {
-  // 简单逻辑：随机换词
+  // 1. Rotate Word
   const idx = Math.floor(Math.random() * WORD_LIST.length);
   GAME_STATE.currentWord = WORD_LIST[idx];
 
-  // 简单轮替画手 (如果有人)
+  // 2. Rotate Drawer
   if (GAME_STATE.players.length > 0) {
-    // 找到当前画手的 index
     const currentIdx = GAME_STATE.players.findIndex(p => p.id === GAME_STATE.currentDrawerId);
     let nextIdx = (currentIdx + 1) % GAME_STATE.players.length;
-    if (currentIdx === -1) nextIdx = 0; // 初始情况
+    if (currentIdx === -1) nextIdx = 0;
 
     GAME_STATE.currentDrawerId = GAME_STATE.players[nextIdx].id;
   }
 
-  // 清空画布
+  // 3. Increment Round Count
+  GAME_STATE.round++;
+
+  // 4. Reset Canvas & Start Timer
   io.emit("clear_canvas");
-  broadcastState();
+  startTimer();
 }
 
-// ====== Socket 逻辑 ======
+// ====== Socket Event Handlers ======
 io.on("connection", socket => {
-  console.log("Client connected:", socket.id);
+  console.log(`[Connect] Socket ID: ${socket.id}`);
 
-  // 1. 玩家加入
+  // --- Core Game Logic ---
+
   socket.on("join_game", ({ name }) => {
-    // 避免重复加入
+    // Idempotency check: Update name if exists, else create
     const existing = GAME_STATE.players.find(p => p.id === socket.id);
     if (!existing) {
       GAME_STATE.players.push({ id: socket.id, name });
-      // 初始化分数
-      if (GAME_STATE.scores[socket.id] === undefined) {
+      if (typeof GAME_STATE.scores[socket.id] === "undefined") {
         GAME_STATE.scores[socket.id] = 0;
       }
     } else {
-      // 更新名字
       existing.name = name;
     }
 
-    // 如果还没有画手，第一个进来的人当画手
+    // Auto-assign drawer if lobby was empty
     if (!GAME_STATE.currentDrawerId) {
       GAME_STATE.currentDrawerId = socket.id;
     }
@@ -86,59 +141,60 @@ io.on("connection", socket => {
     broadcastState();
   });
 
-  // 2. 也是画手主动切题
   socket.on("next_round", () => {
+    // Security: Only current drawer can force next round
     if (socket.id === GAME_STATE.currentDrawerId) {
       nextRound();
     }
   });
 
-  // 3. 绘画事件转发 (除了自己，广播给所有人)
+  // --- Real-time Drawing Events (High Frequency) ---
+  // Forwarding only. No persistence for performance.
+
   socket.on("draw", data => {
+    // data: { from: {x,y}, to: {x,y}, color, width }
+    // Broadcast to everyone ELSE (optimize bandwidth)
     socket.broadcast.emit("draw", data);
   });
 
   socket.on("draw_start", data => {
-    socket.broadcast.emit("draw_start", data); // 可选
+    socket.broadcast.emit("draw_start", data);
   });
 
   socket.on("draw_end", () => {
-    socket.broadcast.emit("draw_end"); // 可选
+    socket.broadcast.emit("draw_end");
   });
 
   socket.on("clear_canvas", () => {
+    // Security: Only drawer can clear
     if (socket.id === GAME_STATE.currentDrawerId) {
       socket.broadcast.emit("clear_canvas");
     }
   });
 
-  // 4. 加分逻辑
+  // --- Scoring System ---
+
   socket.on("add_score", ({ playerId, amount }) => {
-    // 简单校验：只有当前画手能给别人加分
+    // Security: Only drawer can award points (manual mode)
     if (socket.id !== GAME_STATE.currentDrawerId) return;
 
     const currentScore = GAME_STATE.scores[playerId] || 0;
     GAME_STATE.scores[playerId] = currentScore + amount;
 
-    // 给画手自己也加一半分作为奖励? (可选)
-    // GAME_STATE.scores[socket.id] = (GAME_STATE.scores[socket.id] || 0) + 5;
-
     broadcastState();
-
-    // 全局通知: 加分特效
+    // Trigger visual effect on clients
     io.emit("score_animate", { playerId, amount });
   });
 
-  // 5. 断开连接
+  // --- Cleanup ---
+
   socket.on("disconnect", () => {
-    console.log("Client disconnected:", socket.id);
-    // 移除玩家
+    console.log(`[Disconnect] Socket ID: ${socket.id}`);
     GAME_STATE.players = GAME_STATE.players.filter(p => p.id !== socket.id);
 
-    // 如果走的正好是画手
+    // Handle edge case: Drawer left
     if (GAME_STATE.currentDrawerId === socket.id) {
       GAME_STATE.currentDrawerId = null;
-      // 立即开启下一轮，选新画手
       if (GAME_STATE.players.length > 0) {
         nextRound();
       }

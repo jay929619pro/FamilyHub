@@ -196,9 +196,22 @@ function handleResize() {
   initCanvas();
 }
 
+// 暴露给父组件调用
+defineExpose({
+  clearCanvas
+});
+
+import { useResizeObserver } from '@vueuse/core'
+
+/* ... 省略中间代码 ... */
+
 onMounted(() => {
   initCanvas();
-  window.addEventListener("resize", handleResize);
+  // 使用 VueUse 监听容器尺寸变化 (更精准，不仅限窗口)
+  useResizeObserver(containerRef, (entries) => {
+    // 简单防抖或直接重绘
+    initCanvas();
+  })
 
   // 监听远程绘画
   if (socket) {
@@ -208,15 +221,12 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  window.removeEventListener("resize", handleResize);
+  // VueUse 的 observer 会自动清理，但 Socket 事件要手动清理
   if (socket) {
     socket.off("draw", handleRemoteDraw);
     socket.off("clear_canvas");
   }
 });
-
-// 监听画笔属性变化 (无需重置画布)
-// watch(() => props.strokeColor, (v) => {})
 </script>
 
 <template>
@@ -233,13 +243,6 @@ onUnmounted(() => {
       @touchmove.prevent="draw"
       @touchend="stopDrawing"
     ></canvas>
-
-    <!-- 工具栏 (仅画手可见) -->
-    <div v-if="isDrawer" class="absolute bottom-4 right-4 flex gap-2">
-      <var-button type="danger" size="small" round @click="clearCanvas(true)">
-        <var-icon name="trash-can-outline" />
-      </var-button>
-    </div>
   </div>
 </template>
 

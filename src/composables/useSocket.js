@@ -56,6 +56,17 @@ export function useSocket() {
       gameStore.updateState(payload);
     });
 
+    // 监听倒计时 (高频)
+    socket.on("timerTick", seconds => {
+      gameStore.updateTimer(seconds);
+    });
+
+    // 监听回合结束
+    socket.on("round_end", () => {
+      // 可以在这里触发全局音效或震动
+      console.log("🔔 Round End!");
+    });
+
     // 2. 监听绘画轨迹 (全局层面的处理)
     // 架构建议：此处仅做日志或调试。
     // 实际的画板绘制逻辑，应该在 Canvas 组件中通过 socket.on('draw', executeDrawing) 直接处理，

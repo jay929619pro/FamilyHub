@@ -8,9 +8,13 @@ export const useGameStore = defineStore("game", () => {
   const currentWord = ref(""); // 当前题目 (仅画手可见，或猜中后显示)
   const scores = ref({}); // 积分表: { [playerId]: score }
 
-  // 辅助状态
-  const isGameStarted = ref(false);
+  // 生命周期状态
+  const status = ref("waiting"); // 'waiting' | 'playing' | 'result'
+  const timeLeft = ref(0);
   const round = ref(0);
+
+  // 辅助状态
+  const isGameStarted = ref(false); // Deprecated, use status instead
 
   /**
    * 统一处理服务端推送的全量/增量状态更新
@@ -19,25 +23,19 @@ export const useGameStore = defineStore("game", () => {
   function updateState(payload) {
     if (!payload) return;
 
-    if (Array.isArray(payload.players)) {
-      players.value = payload.players;
-    }
+    if (Array.isArray(payload.players)) players.value = payload.players;
+    if (payload.currentDrawerId !== undefined) currentDrawerId.value = payload.currentDrawerId;
+    if (payload.currentWord !== undefined) currentWord.value = payload.currentWord;
+    if (payload.scores) scores.value = payload.scores;
 
-    if (payload.currentDrawerId !== undefined) {
-      currentDrawerId.value = payload.currentDrawerId;
-    }
-
-    if (payload.currentWord !== undefined) {
-      currentWord.value = payload.currentWord;
-    }
-
-    if (payload.scores) {
-      scores.value = payload.scores;
-    }
-
-    // 处理其他可能的扩展字段
-    if (payload.isGameStarted !== undefined) isGameStarted.value = payload.isGameStarted;
+    // Lifecycle updates
+    if (payload.status) status.value = payload.status;
+    if (payload.timeLeft !== undefined) timeLeft.value = payload.timeLeft;
     if (payload.round !== undefined) round.value = payload.round;
+  }
+
+  function updateTimer(seconds) {
+    timeLeft.value = seconds;
   }
 
   // 重置游戏状态
@@ -46,7 +44,8 @@ export const useGameStore = defineStore("game", () => {
     currentDrawerId.value = null;
     currentWord.value = "";
     scores.value = {};
-    isGameStarted.value = false;
+    status.value = "waiting";
+    timeLeft.value = 0;
     round.value = 0;
   }
 
@@ -55,9 +54,11 @@ export const useGameStore = defineStore("game", () => {
     currentDrawerId,
     currentWord,
     scores,
-    isGameStarted,
+    status,
+    timeLeft,
     round,
     updateState,
+    updateTimer,
     resetGame
   };
 });

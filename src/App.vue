@@ -9,7 +9,7 @@ import GameBoard from "./components/GameBoard.vue";
 
 // === 状态管理 ===
 const gameStore = useGameStore();
-const { players, currentDrawerId, currentWord, scores } = storeToRefs(gameStore);
+const { players, currentDrawerId, currentWord, scores, status, timeLeft } = storeToRefs(gameStore);
 const { connect, getSocket } = useSocket();
 const socket = connect(); // 获取 Socket 实例
 
@@ -17,6 +17,31 @@ const socket = connect(); // 获取 Socket 实例
 const myName = ref("");
 const showRoleSelect = ref(true);
 const predefinedRoles = ["爸爸", "妈妈", "舅舅", "宝宝"];
+
+// 画板相关状态
+const gameBoardRef = ref(null);
+const currentTool = ref("pen"); // 'pen' | 'eraser'
+const currentColor = ref("#333333");
+const palette = ["#333333", "#ef4444", "#3b82f6", "#22c55e", "#f59e0b"];
+
+function selectColor(color) {
+  currentTool.value = "pen";
+  currentColor.value = color;
+}
+
+function toggleEraser() {
+  currentTool.value = "eraser";
+}
+
+function confirmClear() {
+  Dialog({
+    title: "确认清空?",
+    message: "清空后无法恢复哦",
+    onConfirm: () => {
+      gameBoardRef.value?.clearCanvas(true);
+    }
+  });
+}
 
 // === 计算属性 ===
 // 是否是画手
@@ -99,21 +124,97 @@ onMounted(() => {
       </div>
 
       <!-- 状态指示 -->
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-3">
+        <!-- 倒计时 -->
+        <div
+          v-if="status === 'playing'"
+          class="font-mono text-xl font-bold flex items-center gap-1 transition-colors"
+          :class="timeLeft <= 10 ? 'text-red-500 animate-pulse' : 'text-gray-600'"
+        >
+          <var-icon name="clock-outline" size="20" />
+          {{ timeLeft }}s
+        </div>
+
         <var-chip :type="isDrawer ? 'primary' : 'default'" size="small">
           {{ isDrawer ? "你是画家 🖌️" : "猜题中 👀" }}
         </var-chip>
       </div>
     </header>
 
+    <!-- 游戏状态遮罩 -->
+    <!-- 1. 等待开始 -->
+    <div
+      v-if="status === 'waiting'"
+      class="absolute inset-x-0 top-16 bottom-24 bg-white/90 z-30 flex flex-col items-center justify-center backdrop-blur-sm"
+    >
+      <div class="text-4xl mb-4 animate-bounce">⏳</div>
+      <h2 class="text-2xl font-bold text-gray-700 mb-2">等待游戏开始</h2>
+      <p class="text-gray-500 mb-6">当前在线: {{ players.length }} 人</p>
+      <var-button v-if="isDrawer || players.length > 0" type="primary" size="large" class="shadow-xl" @click="requestNewRound">
+        开始第一局
+      </var-button>
+    </div>
+
+    <!-- 2. 回合结束 -->
+    <div
+      v-if="status === 'result'"
+      class="absolute inset-x-0 top-16 bottom-24 bg-black/60 z-30 flex flex-col items-center justify-center text-white backdrop-blur-sm"
+    >
+      <div class="text-6xl mb-4">🔔</div>
+      <h2 class="text-3xl font-bold mb-4">时间到!</h2>
+      <p class="text-xl opacity-90 mb-8">
+        正确答案是: <span class="font-bold text-yellow-300 text-2xl">{{ currentWord }}</span>
+      </p>
+
+      <var-button v-if="isDrawer" type="warning" size="large" class="pulse-btn" @click="requestNewRound"> 下一局 ➡️ </var-button>
+      <div v-else class="text-sm opacity-75 animate-pulse">等待画家开启下一轮...</div>
+    </div>
+
     <!-- 2. 中间画板 (自适应高度) -->
     <main class="flex-1 w-full relative bg-white m-2 border-2 border-amber-200 rounded-xl overflow-hidden shadow-inner">
-      <GameBoard :is-drawer="isDrawer" stroke-color="#333" :stroke-width="6" />
+      <GameBoard
+        ref="gameBoardRef"
+        :is-drawer="isDrawer"
+        :stroke-color="currentTool === 'eraser' ? '#ffffff' : currentColor"
+        :stroke-width="currentTool === 'eraser' ? 20 : 6"
+      />
 
-      <!-- 只有画手能看见的"切题"按钮 (悬浮) -->
-      <div v-if="isDrawer" class="absolute top-2 left-2 opacity-80">
-        <var-button round size="mini" type="warning" @click="requestNewRound">换一题</var-button>
-      </div>
+      <!-- 画家专用工具栏 -->
+      <template v-if="isDrawer">
+        <!-- 左上：切题 -->
+        <div class="absolute top-2 left-2 opacity-80 z-20">
+          <var-button round size="mini" type="warning" @click="requestNewRound">换一题</var-button>
+        </div>
+
+        <!-- 右下：绘图工具 (颜色 + 操作) -->
+        <div class="absolute bottom-4 left-0 w-full flex justify-center items-center gap-3 z-20 pointer-events-none">
+          <div
+            class="bg-white/90 backdrop-blur rounded-full shadow-lg p-2 flex items-center gap-3 pointer-events-auto border border-gray-100"
+          >
+            <!-- 颜色选择 -->
+            <div
+              v-for="color in palette"
+              :key="color"
+              class="w-6 h-6 rounded-full border-2 cursor-pointer transition-transform active:scale-90"
+              :class="[currentColor === color && currentTool === 'pen' ? 'border-gray-600 scale-110' : 'border-transparent', 'shadow-sm']"
+              :style="{ background: color }"
+              @click="selectColor(color)"
+            ></div>
+
+            <div class="w-px h-6 bg-gray-200 mx-1"></div>
+
+            <!-- 橡皮擦 -->
+            <var-button round size="small" :type="currentTool === 'eraser' ? 'primary' : 'default'" @click="toggleEraser">
+              <var-icon name="eraser" size="16" />
+            </var-button>
+
+            <!-- 清空 -->
+            <var-button round size="small" type="danger" text @click="confirmClear">
+              <var-icon name="trash-can-outline" size="20" />
+            </var-button>
+          </div>
+        </div>
+      </template>
     </main>
 
     <!-- 3. 底部成员列表 (加分控制) -->

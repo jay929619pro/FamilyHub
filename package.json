@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@varlet/ui": "^3.12.3",
+    "@vueuse/core": "^14.1.0",
     "cors": "^2.8.5",
     "express": "^5.2.1",
     "pinia": "^3.0.4",
