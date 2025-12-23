@@ -30,7 +30,7 @@ const io = new Server(httpServer, {
 // Single Source of Truth for the room
 const GAME_STATE = {
   players: [], // [{ id, name, avatar... }]
-  scores: {}, // { [socketId]: number }
+  scores: {}, // { [name]: number }
   currentDrawerId: null,
   currentWord: "苹果",
   category: "kids", // 'kids' | 'family' | 'pro'
@@ -135,8 +135,8 @@ io.on("connection", socket => {
     if (!existing) {
       GAME_STATE.players.push({ id: socket.id, name });
       // Initialize score if new
-      if (typeof GAME_STATE.scores[socket.id] === "undefined") {
-        GAME_STATE.scores[socket.id] = 0;
+      if (typeof GAME_STATE.scores[name] === "undefined") {
+        GAME_STATE.scores[name] = 0;
       }
     } else {
       existing.name = name;
@@ -201,8 +201,12 @@ io.on("connection", socket => {
   socket.on("add_score", ({ playerId, amount }) => {
     if (socket.id !== GAME_STATE.currentDrawerId) return; // Strict auth
 
-    const currentScore = GAME_STATE.scores[playerId] || 0;
-    GAME_STATE.scores[playerId] = currentScore + amount;
+    const targetPlayer = GAME_STATE.players.find(p => p.id === playerId);
+    if (!targetPlayer) return;
+
+    const name = targetPlayer.name;
+    const currentScore = GAME_STATE.scores[name] || 0;
+    GAME_STATE.scores[name] = currentScore + amount;
 
     broadcastState();
     io.emit("score_animate", { playerId, amount });

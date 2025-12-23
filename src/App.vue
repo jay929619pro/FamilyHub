@@ -58,7 +58,7 @@ const getAvatarColor = name => roleColors[name] || "#ccc";
 // Highest Score Player (for Result Screen)
 const topPlayer = computed(() => {
   if (players.value.length === 0) return null;
-  return [...players.value].sort((a, b) => (scores.value[b.id] || 0) - (scores.value[a.id] || 0))[0];
+  return [...players.value].sort((a, b) => (scores.value[b.name] || 0) - (scores.value[a.name] || 0))[0];
 });
 
 // === Actions ===
@@ -280,7 +280,7 @@ onMounted(() => {
       <div v-if="topPlayer" class="flex gap-2 items-center bg-white/10 px-4 py-2 rounded-lg mb-8">
         <span class="text-xs text-gray-300">目前领先:</span>
         <var-avatar size="small" :style="{ background: getAvatarColor(topPlayer.name) }">{{ topPlayer.name }}</var-avatar>
-        <span class="font-bold text-yellow-400">{{ scores[topPlayer.id] || 0 }}分</span>
+        <span class="font-bold text-yellow-400">{{ scores[topPlayer.name] || 0 }}分</span>
       </div>
 
       <div class="flex flex-col gap-4 w-48">
@@ -323,7 +323,7 @@ onMounted(() => {
           </div>
           <div class="text-center mt-1 leading-tight">
             <div class="text-[10px] text-gray-400">{{ p.name }}</div>
-            <div class="font-bold text-amber-600 font-mono">{{ scores[p.id] || 0 }}</div>
+            <div class="font-bold text-amber-600 font-mono">{{ scores[p.name] || 0 }}</div>
           </div>
           <div v-if="isDrawer && p.id !== socket.id" class="absolute -top-5 w-full flex justify-center transform scale-90">
             <var-button round color="#ff9f43" text-color="#fff" size="mini" elevation="2" @click="addScore(p.id)">+10</var-button>

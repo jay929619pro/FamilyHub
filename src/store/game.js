@@ -6,7 +6,7 @@ export const useGameStore = defineStore("game", () => {
   const players = ref([]); // 玩家列表: [{ id, name, score, avatar ... }]
   const currentDrawerId = ref(null); // 当前画手的 Socket ID
   const currentWord = ref(""); // 当前题目 (仅画手可见，或猜中后显示)
-  const scores = ref({}); // 积分表: { [playerId]: score }
+  const scores = ref({}); // 积分表: { [playerName]: score }
 
   // 生命周期状态
   const status = ref("waiting"); // 'waiting' | 'playing' | 'result'
