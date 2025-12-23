@@ -4,13 +4,14 @@ import { Server } from "socket.io";
 import path from "path";
 import cors from "cors";
 import { fileURLToPath } from "url";
-import { createRequire } from "module";
+
+import { readFileSync } from "fs";
 
 // Fix __dirname for ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const require = createRequire(import.meta.url);
-const WORD_LISTS = require("./words.json");
+
+const WORD_LISTS = JSON.parse(readFileSync(new URL("./words.json", import.meta.url)));
 
 const app = express();
 const httpServer = createServer(app);
