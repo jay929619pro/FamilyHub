@@ -2,9 +2,7 @@
 import { ref, onMounted, onUnmounted, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useCharadesGame } from "../composables/useCharadesGame";
-import { Dialog, Snackbar } from "@varlet/ui";
 import { pinyin } from "pinyin-pro";
-import { TiltController } from "../utils/TiltController";
 
 const router = useRouter();
 
@@ -83,13 +81,8 @@ function playSound(type) {
 // === Wake Lock ===
 // === Device Motion & Wake Lock ===
 // === Tilt Controller & Wake Lock ===
+// === Wake Lock ===
 let wakeLock = null;
-const tiltController = new TiltController({
-  threshold: 30, // 30 degrees
-  resetZone: 15,
-  onSuccess: () => onAction("correct"),
-  onPass: () => onAction("pass")
-});
 
 async function requestWakeLock() {
   try {
@@ -109,28 +102,18 @@ const countdown = ref(3);
 
 async function onStartGame() {
   initAudio();
-  await tiltController.active(); // Request permissions
   await requestWakeLock();
 
   startGame();
 
-  // Note: Calibration happens AFTER countdown to ensure user has positioned phone
   countdown.value = 3;
   const timer = setInterval(() => {
     countdown.value--;
     playSound("tick");
 
-    if (countdown.value === 1) {
-      // Calibrate shortly before start (at "1" count)
-      // This captures the holding position
-      tiltController.calibrate();
-    }
-
     if (countdown.value <= 0) {
       clearInterval(timer);
       startRoundLogic();
-      // Double check calibration on start just in case
-      tiltController.calibrate();
     }
   }, 1000);
 }
@@ -144,7 +127,7 @@ function onAction(type) {
     feedbackStatus.value = null;
   }, 300);
 
-  // Vibration for touch feedback fallback (TiltController handles its own vibration)
+  // Vibration for touch feedback
   if (type === "correct") {
     if (navigator.vibrate) navigator.vibrate(200);
   }
@@ -154,7 +137,6 @@ function onAction(type) {
 }
 
 function onExit() {
-  tiltController.destroy();
   resetGame();
   if (wakeLock) wakeLock.release();
   router.push("/");
