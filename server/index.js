@@ -149,6 +149,11 @@ io.on("connection", socket => {
       const list = WORD_LISTS["kids"];
       const idx = Math.floor(Math.random() * list.length);
       GAME_STATE.currentWord = list[idx];
+
+      // Auto-clear canvas on word change
+      GAME_STATE.recording = [];
+      io.emit("clear_canvas");
+
       broadcastState();
     }
   });
