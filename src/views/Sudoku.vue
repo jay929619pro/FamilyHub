@@ -15,9 +15,46 @@ let socket;
 const selectedCell = ref({ row: -1, col: -1 });
 const myName = ref(localStorage.getItem("family_hub_name") || "Player");
 
+// === Level Configuration ===
+const LEVELS = [
+  {
+    id: "l1",
+    size: 4,
+    difficulty: "easy",
+    title: "水果乐园",
+    desc: "4x4 入门，认识可爱的水果",
+    emoji: "🍎",
+    color: "#4caf50",
+    bg: "#e8f5e9"
+  },
+  {
+    id: "l2",
+    size: 5,
+    difficulty: "medium",
+    title: "数字挑战",
+    desc: "5x5 进阶，简单的数字逻辑",
+    emoji: "🔢",
+    color: "#2196f3",
+    bg: "#e3f2fd"
+  },
+  {
+    id: "l3",
+    size: 6,
+    difficulty: "hard",
+    title: "用心算数",
+    desc: "6x6 大师，真正的脑力考验",
+    emoji: "🎓",
+    color: "#9c27b0",
+    bg: "#f3e5f5"
+  }
+];
+
+const selectedLevel = ref(LEVELS[0]);
+
 // === Icons Mapping ===
 // 4x4 -> Fruits. 5x5/6x6 -> Numbers.
 const FRUIT_MAP = { 1: "🍎", 2: "🍌", 3: "🍇", 4: "🍊", 5: "🍓", 6: "🍍" };
+// Computed helper for the active game view (uses store state, not local selection)
 const isFruitMode = computed(() => size.value === 4 && difficulty.value === "easy");
 const displaySymbols = computed(() => (isFruitMode.value ? FRUIT_MAP : { 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6 }));
 
@@ -37,10 +74,11 @@ function joinGame() {
   }
 }
 
-function startGame(levelSize, levelDiff) {
+function startGame() {
+  const lvl = selectedLevel.value;
   // Reset local selection
   selectedCell.value = { row: -1, col: -1 };
-  socket.emit("start_game", { size: levelSize, difficulty: levelDiff });
+  socket.emit("start_game", { size: lvl.size, difficulty: lvl.difficulty });
 }
 
 function onCellClick(r, c) {
@@ -83,15 +121,12 @@ function isRelated(r, c) {
   if (r === sr || c === sc) return true;
 
   // Box checks for highlighting
-  if (size.value === 5) return false; // 5x5 has no boxes basically, or rows/cols only
+  if (size.value === 5) return false; // 5x5 has no boxes
 
   let boxH = 2;
   let boxW = 2;
 
-  if (size.value === 4) {
-    boxH = 2;
-    boxW = 2;
-  } else if (size.value === 6) {
+  if (size.value === 6) {
     boxH = 2;
     boxW = 3;
   }
@@ -190,8 +225,20 @@ watch(status, val => {
 
 <template>
   <div class="h-screen w-screen flex flex-col bg-[#e0f7fa] overflow-hidden select-none font-sans">
-    <!-- Header -->
-    <var-app-bar color="white" text-color="#006064" elevation="1" title-position="center" :safe-area-top="true">
+    <!-- Setup Phase Header -->
+    <var-app-bar v-if="status === 'waiting'" color="transparent" text-color="#006064" elevation="0" :safe-area-top="true">
+      <template #left>
+        <var-button round text color="transparent" text-color="#006064" @click="$router.push('/')">
+          <var-icon name="chevron-left" size="24" />
+        </var-button>
+      </template>
+      <template #default>
+        <span class="font-bold text-lg">选择关卡</span>
+      </template>
+    </var-app-bar>
+
+    <!-- Playing Header -->
+    <var-app-bar v-else color="white" text-color="#006064" elevation="1" title-position="center" :safe-area-top="true">
       <template #left>
         <var-button round text color="transparent" text-color="#006064" @click="$router.push('/')">
           <var-icon name="home-outline" size="24" />
@@ -201,7 +248,7 @@ watch(status, val => {
         <span class="font-bold tracking-widest text-lg">数独大冒险</span>
       </template>
       <template #right>
-        <var-button v-if="status === 'playing'" round text color="transparent" text-color="#006064" @click="confirmExit">
+        <var-button round text color="transparent" text-color="#006064" @click="confirmExit">
           <span class="text-sm font-bold">切换难度</span>
         </var-button>
       </template>
@@ -209,8 +256,8 @@ watch(status, val => {
 
     <!-- Main Content -->
     <main class="flex-1 flex flex-col p-4 w-full max-w-lg mx-auto overflow-y-auto no-scrollbar">
-      <!-- Players Bar -->
-      <div class="flex justify-center gap-3 mb-4 min-h-[50px]">
+      <!-- Players Bar (Always visible) -->
+      <div class="flex justify-center gap-3 mb-4 min-h-[50px] shrink-0">
         <div v-for="p in players" :key="p.id" class="flex flex-col items-center">
           <var-avatar
             size="small"
@@ -223,26 +270,55 @@ watch(status, val => {
         </div>
       </div>
 
-      <!-- Lobby: Level Selection -->
-      <div v-if="status === 'waiting'" class="flex flex-col gap-4 mt-8">
-        <var-paper :elevation="2" radius="10" class="p-6 text-center bg-white/80">
-          <h2 class="text-2xl font-black text-cyan-600 mb-6">选择关卡</h2>
+      <!-- Lobby: Level Selection (Card Style) -->
+      <div v-if="status === 'waiting'" class="flex flex-col gap-4">
+        <div class="grid grid-cols-1 gap-4">
+          <div
+            v-for="lvl in LEVELS"
+            :key="lvl.id"
+            class="relative p-4 rounded-3xl transition-all duration-200 cursor-pointer border-2 active:scale-95"
+            :class="[
+              selectedLevel.id === lvl.id
+                ? 'bg-white border-cyan-500 shadow-md ring-2 ring-cyan-100'
+                : 'bg-white/60 border-transparent hover:bg-white'
+            ]"
+            @click="selectedLevel = lvl"
+          >
+            <!-- Checkmark -->
+            <div v-if="selectedLevel.id === lvl.id" class="absolute top-4 right-4 text-cyan-500">
+              <var-icon name="check-circle" size="24" />
+            </div>
 
-          <var-button block color="#4caf50" text-color="white" size="large" class="mb-4 font-bold text-xl" @click="startGame(4, 'easy')">
-            Level 1: 4x4 水果乐园 🍎
-            <span class="text-xs ml-2 opacity-80">(入门)</span>
-          </var-button>
+            <div class="flex items-center gap-4">
+              <!-- Icon Box -->
+              <div
+                class="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-sm"
+                :style="{ backgroundColor: lvl.bg, color: lvl.color }"
+              >
+                {{ lvl.emoji }}
+              </div>
 
-          <var-button block color="#2196f3" text-color="white" size="large" class="mb-4 font-bold text-xl" @click="startGame(5, 'medium')">
-            Level 2: 5x5 数字挑战 🔢
-            <span class="text-xs ml-2 opacity-80">(进阶)</span>
-          </var-button>
+              <div>
+                <h3 class="text-xl font-bold text-gray-800">{{ lvl.title }}</h3>
+                <p class="text-xs text-gray-500 mt-1 font-medium">{{ lvl.desc }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
 
-          <var-button block color="#9c27b0" text-color="white" size="large" class="font-bold text-xl" @click="startGame(6, 'hard')">
-            Level 3: 6x6 用心算数 🎓
-            <span class="text-xs ml-2 opacity-80">(大师)</span>
+        <div class="mt-8">
+          <var-button
+            block
+            size="large"
+            radius="16"
+            color="linear-gradient(135deg, #00c6fb 0%, #005bea 100%)"
+            text-color="#fff"
+            class="shadow-xl font-bold text-xl h-14"
+            @click="startGame"
+          >
+            开始挑战
           </var-button>
-        </var-paper>
+        </div>
       </div>
 
       <!-- Game Board -->
