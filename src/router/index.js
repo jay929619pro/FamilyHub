@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from "vue-router";
 import Home from "../views/Home.vue";
 import DrawGuess from "../views/DrawGuess.vue";
 import Charades from "../views/Charades.vue";
+import Sudoku from "../views/Sudoku.vue";
 
 const routes = [
   {
@@ -18,6 +19,11 @@ const routes = [
     path: "/charades",
     name: "Charades",
     component: Charades
+  },
+  {
+    path: "/sudoku",
+    name: "Sudoku",
+    component: Sudoku
   }
 ];
 

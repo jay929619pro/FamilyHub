@@ -1,48 +1,52 @@
-🚀 FamilyHub 2.0 完整开发任务清单
-第一阶段：游戏生命周期管理 (Core Loop)
-目标：让应用从“同步画板”进化为“有开端和结局的游戏”。
+# 🚀 FamilyHub 开发清单 (Game C: Sudoku)
 
-[x] 后端计时器逻辑：server/index.js 引入 roundTimer。 - 实现 startGame，开始 60s 倒计时。 - 每秒广播 timerTick。 - 倒计时结束触发 roundEnd，锁定画板。
+## 🟢 Phase 1: 数独引擎与架构 (Core Engine)
 
-[x] 自动轮转机制： - 管理员或画手一键“下一局”。 - 后端自动更新 currentDrawerId，状态流转正确。
+**目标**：实现一个能生成题目、校验答案的“数学大脑”。
 
-[x] 游戏结算状态： - status: waiting -> playing -> result。 - result 状态下展示最高分。
+- [ ] **后端架构隔离**
 
-第二阶段：宝宝与长辈的交互增强 (UX/Accessibility)
-目标：消除认知障碍，让 6 岁宝宝和长辈无需指导也能玩。
+  - [ ] 创建 `server/controllers/sudoku.js`，实现独立的 `SudokuController` 类。
+  - [ ] 在 `server/index.js` 中挂载数独专属的 Socket 命名空间 `/sudoku` (如果支持) 或通过 `gameType: 'sudoku'` 分流。
 
-[x] 语音辅助 (TTS)： - 前端集成 window.speechSynthesis。 - 画家模式下自动播报“请画出：[词语]”。
+- [ ] **数独算法实现 (Algorithm)**
+  - [ ] **Board Generator**:
+    - 实现 `generateBoard(size)` 函数 (支持 4x4 和 6x6)。
+    - 算法：随机填入首行 -> 回溯法填满 -> 随机挖空 (Digging) -> 保证唯一解。
+  - [ ] **Validator**:
+    - 实现 `checkMove(board, row, col, value)` 实时校验合法性。
+    - 实现 `checkWin(board)` 全局完成判定。
 
-[x] 拼音与视觉优化： - 题目区域 pinyin-pro 生僻字注音。 - 画家与猜题者界面显着区分。
+## 🟡 Phase 2: 游戏界面与交互 (UI/UX)
 
-[x] 动效反馈： - 得分时头像放大并飘出 +10。 - result 遮罩层动画。
+**目标**：让 6 岁的一年级小学生也能看懂、能操作。
 
-第三阶段：系统健壮性 (Stability)
-目标：解决局域网环境下手机息屏、掉线等常见问题。
+- [ ] **棋盘组件 (SudokuGrid)**
 
-[x] 状态重连同步 (Reconnection)：
+  - [ ] **Responsive Grid**: 使用 CSS Grid 实现 4x4 (2x2 zones) 和 6x6 (3x2 zones) 布局。
+  - [ ] **Zone Highlighting**: 使用斑马纹或不同底色区分宫 (Zone)，降低视觉认知负担。
+  - [ ] **Interaction**:
+    - `Active Cell`: 点击格子高亮，并联动键盘。
+    - `Conflict Highlight`: 填错时，高亮冲突的行/列/宫。
 
-前端 socket.io 连接时，若发生断开重连，自动发送 syncRequest。
+- [ ] **输入面板 (Keypad)**
 
-后端返回当前完整的 gameState（包括当前题目、剩余时间、画板当前快照）。
+  - [ ] 适配数字 `1-6` 和 图标模式 (🍎-🍊)。
+  - [ ] 增加 `Erase` (橡皮擦) 和 `Note` (标记) 模式切换。
 
-[x] 防止屏幕休眠：
+- [ ] **亲子协作功能 (Co-op)**
+  - [ ] **实时同步**：任何人的操作都会通过 Socket 广播给所有人 (Board State Sync)。
+  - [ ] **教练指令**：
+    - 父母端增加“提示”按钮：点击后，高亮宝宝当前选中格子的相关区域 (Row/Col/Zone)。
 
-引入 WakeLock API（如果浏览器支持），防止大家在思考怎么画时手机突然黑屏。
+## 🔵 Phase 3: 游戏化与正反馈 (Gamification)
 
-[x] 环境适配优化：
+**目标**：把做题变成闯关。
 
-增加 resize 监听，当 iPad 旋屏时，自动重新计算 Canvas 的物理尺寸，保证 2000x2000 虚拟坐标映射不失效。
+- [ ] **关卡系统**
 
-第四阶段：词库与扩展 (Content)
-目标：增加耐玩度。
+  - [ ] Level 1 (4x4, 简单, 水果) -> Level 2 (4x4, 数字) -> Level 3 (6x6, 简单) ...
+  - [ ] 胜利结算画面：显示“逻辑小天才”奖状。
 
-[x] 分级词库管理：
-
-建立 words.json，分为 kids（简单事物）、family（家庭成员梗）、pro（成语/抽象词）。
-
-界面增加开关，允许勾选本次游戏使用的词库。
-
-[x] 图片保存：
-
-增加“保存到相册”功能，将大家画得有趣的画（连同得分）生成一张海报图。
+- [ ] **错误保护**
+  - [ ] 错误超过 3 次不判定失败，而是触发“求助爸爸”弹窗。

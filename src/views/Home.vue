@@ -19,6 +19,14 @@ const games = [
     color: "linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)",
     icon: "twitter",
     path: "/charades"
+  },
+  {
+    id: "sudoku",
+    title: "🔢 数独大冒险",
+    desc: "全家动脑，帮宝宝一起闯关！",
+    color: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
+    icon: "calendar-month",
+    path: "/sudoku"
   }
 ];
 
@@ -28,19 +36,21 @@ function navigateTo(path) {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#fffbf0] flex flex-col p-6">
-    <!-- Header -->
-    <header class="mb-8 mt-10">
+  <!-- Fixed viewport container -->
+  <div class="h-screen w-screen bg-[#fffbf0] flex flex-col overflow-hidden">
+    <!-- Static Header -->
+    <header class="mt-10 mb-6 px-6 shrink-0">
       <h1 class="text-3xl font-black text-gray-800 mb-2">家庭游戏大厅</h1>
       <p class="text-gray-500 font-medium tracking-wide">Family Game Hub</p>
     </header>
 
-    <!-- Game List -->
-    <div class="flex-1 flex flex-col gap-6">
+    <!-- Scrollable Game List -->
+    <!-- flex-1 fills remaining height, overflow-y-auto enables internal scroll -->
+    <div class="flex-1 flex flex-col gap-6 px-6 overflow-y-auto overscroll-contain pb-safe">
       <div
         v-for="game in games"
         :key="game.id"
-        class="relative overflow-hidden rounded-3xl shadow-lg active:scale-95 transition-transform duration-200 cursor-pointer"
+        class="relative overflow-hidden rounded-3xl shadow-lg active:scale-95 transition-transform duration-200 cursor-pointer shrink-0"
         :style="{ background: game.color }"
         @click="navigateTo(game.path)"
       >
@@ -59,9 +69,12 @@ function navigateTo(path) {
           </p>
         </div>
       </div>
-    </div>
 
-    <!-- Footer Info -->
-    <footer class="text-center py-6 text-gray-300 text-xs">Made with ❤️ by Family</footer>
+      <!-- Footer Info -->
+      <footer class="text-center py-6 text-gray-300 text-xs shrink-0">Made with ❤️ by Family</footer>
+
+      <!-- Bottom spacer for safe area scrolling -->
+      <div class="h-8 shrink-0"></div>
+    </div>
   </div>
 </template>

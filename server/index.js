@@ -4,6 +4,7 @@ import { Server } from "socket.io";
 import path from "path";
 import cors from "cors";
 import { fileURLToPath } from "url";
+import { SudokuController } from "./controllers/sudoku.js";
 
 import { readFileSync } from "fs";
 
@@ -25,6 +26,9 @@ const io = new Server(httpServer, {
     methods: ["GET", "POST"]
   }
 });
+
+const sudokuIo = io.of("/sudoku");
+new SudokuController(sudokuIo);
 
 // --- State Management ---
 // Single Source of Truth for the room
@@ -206,7 +210,7 @@ io.on("connection", socket => {
     const name = targetPlayer.name;
     let currentScore = Number(GAME_STATE.scores[name]);
     if (isNaN(currentScore)) currentScore = 0;
-    
+
     const newScore = Math.min(5, currentScore + 1); // Cap at 5
     GAME_STATE.scores[name] = newScore;
 
@@ -225,7 +229,7 @@ io.on("connection", socket => {
       // End game immediately
       GAME_STATE.status = "waiting";
       GAME_STATE.currentDrawerId = null;
-      
+
       broadcastState();
       io.emit("player_won", { winnerId, name });
     }
