@@ -1,52 +1,35 @@
-# 🚀 FamilyHub 开发清单 (Game C: Sudoku)
+# 🚀 FamilyHub 开发清单
 
-## 🟢 Phase 1: 数独引擎与架构 (Core Engine)
+## 🟢 Phase 1: 数独引擎与架构 (Game C: Sudoku) - ✅ 已完成
 
-**目标**：实现一个能生成题目、校验答案的“数学大脑”。
+## 🔵 Phase 4: Game D - 逻辑大师 (Logic Master)
 
-- [ ] **后端架构隔离**
+**目标**：全方位数学思维训练框架 (Vue Based)。
 
-  - [ ] 创建 `server/controllers/sudoku.js`，实现独立的 `SudokuController` 类。
-  - [ ] 在 `server/index.js` 中挂载数独专属的 Socket 命名空间 `/sudoku` (如果支持) 或通过 `gameType: 'sudoku'` 分流。
+- [ ] **框架搭建**
 
-- [ ] **数独算法实现 (Algorithm)**
-  - [ ] **Board Generator**:
-    - 实现 `generateBoard(size)` 函数 (支持 4x4 和 6x6)。
-    - 算法：随机填入首行 -> 回溯法填满 -> 随机挖空 (Digging) -> 保证唯一解。
-  - [ ] **Validator**:
-    - 实现 `checkMove(board, row, col, value)` 实时校验合法性。
-    - 实现 `checkWin(board)` 全局完成判定。
+  - [ ] 创建 `src/views/LogicMaster.vue` (通用容器)。
+  - [ ] 设计 `QuestionCard` 组件接口 (Slot & Props)。
+  - [ ] 状态管理 `useLogicGame.js` (关卡进度、错误统计)。
 
-## 🟡 Phase 2: 游戏界面与交互 (UI/UX)
+- [ ] **题型组件开发 (Puzzle Components)**
 
-**目标**：让 6 岁的一年级小学生也能看懂、能操作。
+  - [ ] **PatternMatcher.vue (找规律)**: 实现序列渲染与选项点击。
+  - [ ] **VisualBalance.vue (代数天平)**: 移植并简化 MagicBalance 逻辑为静态答题模式。
+  - [ ] **CubeCounter.vue (数方块)**: 使用 CSS 3D 或预渲染图片实现数立方体。
 
-- [ ] **棋盘组件 (SudokuGrid)**
+- [ ] **内容生成**
+  - [ ] 编写 `LevelGenerator.js`：支持多种题型的随机生成算法。
+  - [ ] 接入 `confetti` 庆祝特效。
 
-  - [ ] **Responsive Grid**: 使用 CSS Grid 实现 4x4 (2x2 zones) 和 6x6 (3x2 zones) 布局。
-  - [ ] **Zone Highlighting**: 使用斑马纹或不同底色区分宫 (Zone)，降低视觉认知负担。
-  - [ ] **Interaction**:
-    - `Active Cell`: 点击格子高亮，并联动键盘。
-    - `Conflict Highlight`: 填错时，高亮冲突的行/列/宫。
+## 🟣 Phase 5: Game E - 小小程序员 (Code The Way)
 
-- [ ] **输入面板 (Keypad)**
+**目标**：计算思维与空间规划。
 
-  - [ ] 适配数字 `1-6` 和 图标模式 (🍎-🍊)。
-  - [ ] 增加 `Erase` (橡皮擦) 和 `Note` (标记) 模式切换。
+- [ ] **待启动** (排期在 Game D 之后)
 
-- [ ] **亲子协作功能 (Co-op)**
-  - [ ] **实时同步**：任何人的操作都会通过 Socket 广播给所有人 (Board State Sync)。
-  - [ ] **教练指令**：
-    - 父母端增加“提示”按钮：点击后，高亮宝宝当前选中格子的相关区域 (Row/Col/Zone)。
+## 🟤 Phase 6: Game F - 速算大乱斗 (Make 10)
 
-## 🔵 Phase 3: 游戏化与正反馈 (Gamification)
+**目标**：心算速度与数感。
 
-**目标**：把做题变成闯关。
-
-- [ ] **关卡系统**
-
-  - [ ] Level 1 (4x4, 简单, 水果) -> Level 2 (4x4, 数字) -> Level 3 (6x6, 简单) ...
-  - [ ] 胜利结算画面：显示“逻辑小天才”奖状。
-
-- [ ] **错误保护**
-  - [ ] 错误超过 3 次不判定失败，而是触发“求助爸爸”弹窗。
+- [ ] **待启动** (排期在 Game E 之后)

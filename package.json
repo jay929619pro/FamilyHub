@@ -13,8 +13,10 @@
   "dependencies": {
     "@varlet/ui": "^3.12.3",
     "@vueuse/core": "^14.1.0",
+    "canvas-confetti": "^1.9.4",
     "cors": "^2.8.5",
     "express": "^5.2.1",
+    "phaser": "^3.90.0",
     "pinia": "^3.0.4",
     "pinyin-pro": "^3.27.0",
     "socket.io": "^4.8.1",

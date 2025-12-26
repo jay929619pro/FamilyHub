@@ -27,6 +27,14 @@ const games = [
     color: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
     icon: "calendar-month",
     path: "/sudoku"
+  },
+  {
+    id: "logic-master",
+    title: "🧠 逻辑大师",
+    desc: "代数天平、找规律...全脑开发！",
+    color: "linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%)",
+    icon: "notebook",
+    path: "/logic"
   }
 ];
 
@@ -73,8 +81,14 @@ function navigateTo(path) {
       <!-- Footer Info -->
       <footer class="text-center py-6 text-gray-300 text-xs shrink-0">Made with ❤️ by Family</footer>
 
-      <!-- Bottom spacer for safe area scrolling -->
-      <div class="h-8 shrink-0"></div>
+      <!-- Safe Area Spacer -->
+      <div class="h-4 shrink-0"></div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+</style>

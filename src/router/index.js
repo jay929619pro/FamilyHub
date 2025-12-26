@@ -3,6 +3,7 @@ import Home from "../views/Home.vue";
 import DrawGuess from "../views/DrawGuess.vue";
 import Charades from "../views/Charades.vue";
 import Sudoku from "../views/Sudoku.vue";
+import MagicBalance from "../views/MagicBalance.vue";
 
 const routes = [
   {
@@ -24,6 +25,16 @@ const routes = [
     path: "/sudoku",
     name: "Sudoku",
     component: Sudoku
+  },
+  {
+    path: "/balance",
+    name: "MagicBalance",
+    component: MagicBalance
+  },
+  {
+    path: "/logic",
+    name: "LogicMaster",
+    component: () => import("../views/LogicMaster.vue")
   }
 ];
 
